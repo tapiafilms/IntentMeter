@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-// ── Types ─────────────────────────────────────────────
 type Product = {
   id: string
   tenant_id?: string
@@ -21,14 +20,12 @@ type Product = {
 }
 
 type Variant = { name: string; value: string; stock: number }
-
 type MenuItem = { label: string; url: string; parent: string }
 
 const CATEGORIES = ['Abrigos', 'Blusas', 'Accesorios', 'Pantalones', 'Vestidos']
-
+const BUCKET = 'productos'
 const supabase = createClient()
 
-// ── Helpers ──────────────────────────────────────────
 const fmt = (n: number) => n ? '$' + Number(n).toLocaleString('es-CL') : '—'
 const ago = (d: string) => {
   const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000)
@@ -41,7 +38,28 @@ const toSlug = (s: string) => s.toLowerCase()
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-')
 
-// ── Toast ────────────────────────────────────────────
+// ── Compresión de imagen ──────────────────────────────
+async function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, maxWidth / img.width)
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, w, h)
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Canvas error')), 'image/webp', quality)
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
+
 function useToast() {
   const [toast, setToast] = useState<{ msg: string; type: string } | null>(null)
   const show = (msg: string, type = '') => {
@@ -51,7 +69,6 @@ function useToast() {
   return { toast, show }
 }
 
-// ── Main component ────────────────────────────────────
 export default function AdminPage() {
   const router = useRouter()
   const { toast, show } = useToast()
@@ -66,7 +83,6 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
 
-  // Modal state
   const [modal, setModal] = useState(false)
   const [editProduct, setEditProduct] = useState<Partial<Product>>({})
   const [editImages, setEditImages] = useState<string[]>([])
@@ -74,8 +90,9 @@ export default function AdminPage() {
   const [editActive, setEditActive] = useState(true)
   const [newImgUrl, setNewImgUrl] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ── Load data ───────────────────────────────────────
   const loadProducts = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false })
@@ -100,7 +117,6 @@ export default function AdminPage() {
     if (section === 'menu' && menuItems.length === 0) loadMenu()
   }, [section])
 
-  // ── Filter products ─────────────────────────────────
   useEffect(() => {
     let list = products
     if (searchQ) list = list.filter(p => p.name?.toLowerCase().includes(searchQ.toLowerCase()) || p.slug?.toLowerCase().includes(searchQ.toLowerCase()))
@@ -110,13 +126,11 @@ export default function AdminPage() {
     setFilteredProducts(list)
   }, [searchQ, catFilter, statusFilter, products])
 
-  // ── Logout ──────────────────────────────────────────
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/admin/login')
   }
 
-  // ── Product modal ────────────────────────────────────
   function openNew() {
     setEditProduct({})
     setEditImages([])
@@ -131,6 +145,38 @@ export default function AdminPage() {
     setEditVariants(p.variants || [])
     setEditActive(p.active)
     setModal(true)
+  }
+
+  // ── Subida de imagen con compresión ───────────────────
+  async function handleImageUpload(files: FileList | null) {
+    if (!files || files.length === 0) return
+    setUploading(true)
+    const urls: string[] = []
+
+    for (const file of Array.from(files)) {
+      try {
+        // Comprimir a WebP máx 1200px, 80% calidad
+        const compressed = await compressImage(file)
+        const originalKB = Math.round(file.size / 1024)
+        const compressedKB = Math.round(compressed.size / 1024)
+
+        const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.webp`
+        const { error } = await supabase.storage
+          .from(BUCKET)
+          .upload(filename, compressed, { contentType: 'image/webp', upsert: false })
+
+        if (error) { show(`Error subiendo ${file.name}: ${error.message}`, 'error'); continue }
+
+        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename)
+        urls.push(urlData.publicUrl)
+        show(`✓ ${file.name} — ${originalKB}KB → ${compressedKB}KB (WebP)`, 'success')
+      } catch {
+        show(`Error procesando ${file.name}`, 'error')
+      }
+    }
+
+    setEditImages(imgs => [...imgs, ...urls])
+    setUploading(false)
   }
 
   async function saveProduct() {
@@ -169,7 +215,6 @@ export default function AdminPage() {
     loadProducts()
   }
 
-  // ── Menu ─────────────────────────────────────────────
   function loadMenu() {
     const saved = localStorage.getItem('admin_menu')
     setMenuItems(saved ? JSON.parse(saved) : [
@@ -185,7 +230,6 @@ export default function AdminPage() {
     show('Menú guardado ✓', 'success')
   }
 
-  // ── Styles (inline for self-contained file) ──────────
   const s = {
     shell: { display: 'flex', height: '100vh', overflow: 'hidden', background: '#0e0e0e', fontFamily: 'DM Sans, sans-serif', color: '#f0ede8', fontSize: 13 } as React.CSSProperties,
     sidebar: { width: 220, background: '#161616', borderRight: '1px solid #2a2a2a', display: 'flex', flexDirection: 'column' as const, flexShrink: 0 },
@@ -218,22 +262,23 @@ export default function AdminPage() {
     <>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-      {/* Toast */}
       {toast && (
-        <div style={{
-          position: 'fixed', bottom: 24, right: 24, background: '#1e1e1e',
-          border: `1px solid ${toast.type === 'success' ? '#2a5a3a' : toast.type === 'error' ? '#5a2a2a' : '#333'}`,
-          color: toast.type === 'success' ? '#4caf7d' : toast.type === 'error' ? '#e05a5a' : '#f0ede8',
-          padding: '10px 16px', borderRadius: 8, fontSize: 13, zIndex: 9999
-        }}>{toast.msg}</div>
+        <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#1e1e1e', border: `1px solid ${toast.type === 'success' ? '#2a5a3a' : toast.type === 'error' ? '#5a2a2a' : '#333'}`, color: toast.type === 'success' ? '#4caf7d' : toast.type === 'error' ? '#e05a5a' : '#f0ede8', padding: '10px 16px', borderRadius: 8, fontSize: 13, zIndex: 9999, maxWidth: 340 }}>{toast.msg}</div>
       )}
 
-      {/* Product Modal */}
+      {/* Input file oculto */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: 'none' }}
+        onChange={e => handleImageUpload(e.target.files)}
+      />
+
+      {/* MODAL */}
       {modal && (
-        <div onClick={e => e.target === e.currentTarget && setModal(false)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24
-        }}>
+        <div onClick={e => e.target === e.currentTarget && setModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ background: '#161616', border: '1px solid #333', borderRadius: 12, width: '100%', maxWidth: 680, maxHeight: '85vh', overflowY: 'auto' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#161616' }}>
               <span style={{ fontSize: 14, fontWeight: 500 }}>{editProduct.id ? editProduct.name : 'Nuevo producto'}</span>
@@ -248,18 +293,11 @@ export default function AdminPage() {
                 ].map(f => (
                   <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <label style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{f.label}</label>
-                    <input
-                      type={f.type || 'text'}
-                      style={s.input}
-                      placeholder={f.placeholder}
+                    <input type={f.type || 'text'} style={s.input} placeholder={f.placeholder}
                       value={(editProduct[f.key as keyof Product] as string) || ''}
                       onChange={e => {
                         const val = e.target.value
-                        setEditProduct(p => ({
-                          ...p,
-                          [f.key]: val,
-                          ...(f.key === 'name' && !p.id ? { slug: toSlug(val) } : {})
-                        }))
+                        setEditProduct(p => ({ ...p, [f.key]: val, ...(f.key === 'name' && !p.id ? { slug: toSlug(val) } : {}) }))
                       }}
                     />
                   </div>
@@ -277,24 +315,52 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Images */}
+              {/* ── Imágenes ── */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Imágenes</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 8, marginBottom: 8 }}>
-                  {editImages.map((url, i) => (
-                    <div key={i} style={{ aspectRatio: '1', borderRadius: 8, border: '1px solid #2a2a2a', overflow: 'hidden', position: 'relative' }}>
-                      <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                      <button onClick={() => setEditImages(imgs => imgs.filter((_, j) => j !== i))} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', color: '#e05a5a', cursor: 'pointer', fontSize: 10 }}>✕</button>
-                    </div>
-                  ))}
+                <label style={{ display: 'block', fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                  Imágenes
+                  <span style={{ marginLeft: 8, color: '#3a5a3a', fontWeight: 400 }}>— compresión automática a WebP</span>
+                </label>
+
+                {/* Zona de drop */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); handleImageUpload(e.dataTransfer.files) }}
+                  style={{ border: '1.5px dashed #333', borderRadius: 8, padding: '20px', textAlign: 'center', cursor: 'pointer', background: '#1a1a1a', marginBottom: 10, transition: 'border-color 0.15s' }}
+                >
+                  {uploading ? (
+                    <div style={{ color: '#c9b99a', fontSize: 12 }}>⏳ Comprimiendo y subiendo...</div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 22, marginBottom: 4 }}>📁</div>
+                      <div style={{ fontSize: 12, color: '#8a8580' }}>Arrastra imágenes aquí o <span style={{ color: '#c9b99a' }}>haz clic para seleccionar</span></div>
+                      <div style={{ fontSize: 10, color: '#555', marginTop: 4 }}>JPG, PNG, WEBP · Se comprimen automáticamente a WebP ≤200KB</div>
+                    </>
+                  )}
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input type="text" style={s.input} placeholder="https://... URL de imagen" value={newImgUrl} onChange={e => setNewImgUrl(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newImgUrl.trim()) { setEditImages(i => [...i, newImgUrl.trim()]); setNewImgUrl('') } }} />
-                  <button style={{ ...s.btn('ghost'), whiteSpace: 'nowrap' }} onClick={() => { if (newImgUrl.trim()) { setEditImages(i => [...i, newImgUrl.trim()]); setNewImgUrl('') } }}>+ Agregar</button>
+
+                {/* Grid de imágenes subidas */}
+                {editImages.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 8, marginBottom: 8 }}>
+                    {editImages.map((url, i) => (
+                      <div key={i} style={{ aspectRatio: '1', borderRadius: 8, border: '1px solid #2a2a2a', overflow: 'hidden', position: 'relative' }}>
+                        <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                        <button onClick={() => setEditImages(imgs => imgs.filter((_, j) => j !== i))} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', color: '#e05a5a', cursor: 'pointer', fontSize: 10 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* URL manual como alternativa */}
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <input type="text" style={{ ...s.input, fontSize: 11 }} placeholder="O pega una URL externa..." value={newImgUrl} onChange={e => setNewImgUrl(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && newImgUrl.trim()) { setEditImages(i => [...i, newImgUrl.trim()]); setNewImgUrl('') } }} />
+                  <button style={{ ...s.btn('ghost'), whiteSpace: 'nowrap', fontSize: 11 }} onClick={() => { if (newImgUrl.trim()) { setEditImages(i => [...i, newImgUrl.trim()]); setNewImgUrl('') } }}>+ URL</button>
                 </div>
               </div>
 
-              {/* Variants */}
+              {/* ── Variantes ── */}
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Variantes</label>
                 {editVariants.map((v, i) => (
@@ -308,7 +374,7 @@ export default function AdminPage() {
                 <button style={{ ...s.btn('ghost'), fontSize: 11, padding: '4px 10px' }} onClick={() => setEditVariants(vs => [...vs, { name: '', value: '', stock: 0 }])}>+ Agregar variante</button>
               </div>
 
-              {/* Active toggle */}
+              {/* ── Toggle activo ── */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div onClick={() => setEditActive(a => !a)} style={{ width: 36, height: 20, background: editActive ? '#4caf7d' : '#262626', borderRadius: 20, position: 'relative', cursor: 'pointer', border: `1px solid ${editActive ? '#4caf7d' : '#333'}`, transition: 'background 0.2s' }}>
                   <div style={{ position: 'absolute', width: 14, height: 14, background: editActive ? 'white' : '#555', borderRadius: '50%', top: 2, left: editActive ? 18 : 2, transition: 'left 0.2s' }} />
@@ -320,7 +386,7 @@ export default function AdminPage() {
             <div style={{ padding: '14px 20px', borderTop: '1px solid #2a2a2a', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               {editProduct.id && <button onClick={deleteProduct} style={{ ...s.btn('danger'), marginRight: 'auto' }}>Eliminar producto</button>}
               <button onClick={() => setModal(false)} style={s.btn('ghost')}>Cancelar</button>
-              <button onClick={saveProduct} disabled={saving} style={{ ...s.btn('primary'), opacity: saving ? 0.6 : 1 }}>{saving ? 'Guardando...' : 'Guardar producto'}</button>
+              <button onClick={saveProduct} disabled={saving || uploading} style={{ ...s.btn('primary'), opacity: saving || uploading ? 0.6 : 1 }}>{saving ? 'Guardando...' : 'Guardar producto'}</button>
             </div>
           </div>
         </div>
@@ -344,12 +410,8 @@ export default function AdminPage() {
             ))}
           </nav>
           <div style={{ padding: '12px 8px', borderTop: '1px solid #2a2a2a' }}>
-            <a href="https://intent-meter.vercel.app" target="_blank" rel="noreferrer" style={{ ...s.navItem(false), textDecoration: 'none', display: 'flex' }}>
-              ↗ Ver tienda en vivo
-            </a>
-            <div style={s.navItem(false)} onClick={handleLogout}>
-              ← Cerrar sesión
-            </div>
+            <a href="https://intent-meter.vercel.app" target="_blank" rel="noreferrer" style={{ ...s.navItem(false), textDecoration: 'none', display: 'flex' }}>↗ Ver tienda en vivo</a>
+            <div style={s.navItem(false)} onClick={handleLogout}>← Cerrar sesión</div>
           </div>
         </div>
 
@@ -391,7 +453,7 @@ export default function AdminPage() {
                       <thead><tr>{['Producto', 'Categoría', 'Precio', 'Estado', 'Creado'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
                       <tbody>
                         {products.slice(0, 8).map(p => (
-                          <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => { openEdit(p); }}>
+                          <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => { openEdit(p) }}>
                             <td style={s.td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               {p.images?.[0] ? <img src={p.images[0]} style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', border: '1px solid #2a2a2a' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} /> : <div style={{ width: 34, height: 34, borderRadius: 6, background: '#262626', border: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>◇</div>}
                               <span style={{ color: '#f0ede8' }}>{p.name}</span>
@@ -409,7 +471,7 @@ export default function AdminPage() {
               </>
             )}
 
-            {/* PRODUCTS */}
+            {/* PRODUCTOS */}
             {section === 'products' && (
               <>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -451,7 +513,7 @@ export default function AdminPage() {
               </>
             )}
 
-            {/* CATEGORIES */}
+            {/* CATEGORÍAS */}
             {section === 'categories' && (
               <div style={s.panel}>
                 <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Categorías activas</div>
@@ -472,7 +534,7 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* ORDERS */}
+            {/* ÓRDENES */}
             {section === 'orders' && (
               <div style={s.panel}>
                 <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Órdenes ({orders.length})</div>
@@ -494,7 +556,7 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* MENU */}
+            {/* MENÚ */}
             {section === 'menu' && (
               <div style={s.panel}>
                 <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Ítems del menú</div>
