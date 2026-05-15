@@ -56,7 +56,7 @@ export async function getOrCreateSession(visitorId: string): Promise<Session> {
 
   // Crear nueva sesión
   const { data: created, error } = await db.from('sessions')
-    .insert({ tenant_id: TENANT_ID, visitor_id: visitorId })
+    .insert({ tenant_id: TENANT_ID, visitor_id: visitorId } as any)
     .select()
     .single()
 
@@ -107,7 +107,8 @@ export async function getTopObjections(days = 7) {
   // Agrupa y cuenta objeciones
   const counts: Record<string, number> = {}
   data?.forEach(row => {
-    row.objections?.forEach((obj: string) => {
+    const rowData = row as any
+    rowData.objections?.forEach((obj: string) => {
       counts[obj] = (counts[obj] || 0) + 1
     })
   })

@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       session_id: session.id,
       type,
       payload,
-    })
+    } as any)
 
     if (error) throw error
 
@@ -44,18 +44,20 @@ export async function POST(req: NextRequest) {
     await updateSessionIntent(session.id, type, payload)
 
     // Leer el score actualizado para devolverlo al cliente
-const { data: updatedSession } = await db
-  .from('sessions')
-  .select('intent_score, intent_type')
-  .eq('id', session.id)
-  .single()
+    const { data: updatedSession } = await db
+      .from('sessions')
+      .select('intent_score, intent_type')
+      .eq('id', session.id)
+      .single()
 
-return NextResponse.json({
-  ok: true,
-  session_id: session.id,
-  intent_score: updatedSession?.intent_score ?? 0,
-  intent_type: updatedSession?.intent_type ?? 'curious',
-})
+    const sessionData = updatedSession as any
+
+    return NextResponse.json({
+      ok: true,
+      session_id: session.id,
+      intent_score: sessionData?.intent_score ?? 0,
+      intent_type: sessionData?.intent_type ?? 'curious',
+    })
   } catch (err) {
     console.error('[track]', err)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })

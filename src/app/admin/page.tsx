@@ -3,6 +3,7 @@
 // Dashboard de administración — Tienda Inteligente
 // ============================================================
 import { createServiceClient } from '@/lib/supabase/server'
+import type { Session, SessionEvent } from '@/lib/supabase/types'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
 
@@ -32,7 +33,9 @@ async function getDashboardData() {
 }
 
 export default async function AdminPage() {
-  const { sessions, events } = await getDashboardData()
+  const data = await getDashboardData()
+  const sessions = data.sessions as Session[]
+  const events = data.events as SessionEvent[]
 
   // Métricas
   const totalSessions = sessions.length

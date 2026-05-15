@@ -21,15 +21,15 @@ export async function updateSessionIntent(
     .single()
 
   if (error || !session) return
+  const sessionData = session as any
 
   // Calcular nuevo score
   const delta = scoreEvent(eventType, payload)
-  const newScore = clampScore((session.intent_score ?? 0) + delta)
+  const newScore = clampScore((sessionData.intent_score ?? 0) + delta)
   const newType = getIntentType(newScore)
 
   // Actualizar sesión
-  await db
-    .from('sessions')
+  await (db.from('sessions') as any)
     .update({
       intent_score: newScore,
       intent_type: newType,
