@@ -2,14 +2,14 @@
 // lib/supabase/queries.ts
 // Funciones de query reutilizables — evita SQL repetido
 // ============================================================
-import { createServiceClient } from './server'
+import { createClient } from './server'
 import type { Product, Session, Conversation, WeeklyReport } from './types'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
 
 // ── Productos ─────────────────────────────────────────────────
 export async function getProducts(category?: string): Promise<Product[]> {
-  const db = createServiceClient()
+  const db = await createClient()
   let q = db.from('products')
     .select('*')
     .eq('tenant_id', TENANT_ID)
@@ -24,7 +24,7 @@ export async function getProducts(category?: string): Promise<Product[]> {
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
-  const db = createServiceClient()
+  const db = await createClient()
   const { data, error } = await db.from('products')
     .select('*')
     .eq('tenant_id', TENANT_ID)
@@ -38,9 +38,8 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 
 // ── Sesiones ──────────────────────────────────────────────────
 export async function getOrCreateSession(visitorId: string): Promise<Session> {
-  const db = createServiceClient()
+  const db = await createClient()
 
-  // Buscar sesión activa (sin ended_at, iniciada hace menos de 30 min)
   const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
   const { data: existing } = await db.from('sessions')
     .select('*')
@@ -54,7 +53,6 @@ export async function getOrCreateSession(visitorId: string): Promise<Session> {
 
   if (existing) return existing as Session
 
-  // Crear nueva sesión
   const { data: created, error } = await db.from('sessions')
     .insert({ tenant_id: TENANT_ID, visitor_id: visitorId } as any)
     .select()
@@ -66,7 +64,7 @@ export async function getOrCreateSession(visitorId: string): Promise<Session> {
 
 // ── Conversaciones ────────────────────────────────────────────
 export async function getRecentConversations(limit = 20): Promise<Conversation[]> {
-  const db = createServiceClient()
+  const db = await createClient()
   const { data, error } = await db.from('conversations')
     .select('*')
     .eq('tenant_id', TENANT_ID)
@@ -79,7 +77,7 @@ export async function getRecentConversations(limit = 20): Promise<Conversation[]
 
 // ── Reporte semanal ───────────────────────────────────────────
 export async function getLatestWeeklyReport(): Promise<WeeklyReport | null> {
-  const db = createServiceClient()
+  const db = await createClient()
   const { data, error } = await db.from('weekly_reports')
     .select('*')
     .eq('tenant_id', TENANT_ID)
@@ -93,7 +91,7 @@ export async function getLatestWeeklyReport(): Promise<WeeklyReport | null> {
 
 // ── Analytics ─────────────────────────────────────────────────
 export async function getTopObjections(days = 7) {
-  const db = createServiceClient()
+  const db = await createClient()
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
   const { data, error } = await db.from('conversations')
@@ -104,7 +102,6 @@ export async function getTopObjections(days = 7) {
 
   if (error) throw error
 
-  // Agrupa y cuenta objeciones
   const counts: Record<string, number> = {}
   data?.forEach(row => {
     const rowData = row as any
