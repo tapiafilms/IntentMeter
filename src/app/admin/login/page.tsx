@@ -21,7 +21,7 @@ export default function AdminLogin() {
       setLoading(false)
       return
     }
-    router.push('/admin')
+    router.push('/admin/productos')
     router.refresh()
   }
 
