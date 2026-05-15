@@ -2,7 +2,7 @@
 // lib/intent/updateSession.ts
 // Actualiza intent_score e intent_type en la sesión activa
 // ============================================================
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { scoreEvent, getIntentType, clampScore } from './scorer'
 import type { SessionEventType } from '@/lib/supabase/types'
 
@@ -11,7 +11,7 @@ export async function updateSessionIntent(
   eventType: SessionEventType,
   payload: Record<string, unknown> = {}
 ) {
-  const db = createServiceClient()
+  const db = await createClient()
 
   // Leer score actual
   const { data: session, error } = await db
