@@ -2,7 +2,7 @@
 // app/api/track/route.ts
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { getOrCreateSession } from '@/lib/supabase/queries'
 import { updateSessionIntent } from '@/lib/intent/updateSession'
 import type { SessionEventType } from '@/lib/supabase/types'
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
-    const db = createServiceClient()
+    const db = await createClient()
 
     // Obtener o crear sesión
     const session = await getOrCreateSession(visitorId)
