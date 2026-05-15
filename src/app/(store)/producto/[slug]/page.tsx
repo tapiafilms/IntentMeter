@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getProductBySlug, getProducts } from '@/lib/supabase/queries'
+import { getProductBySlug, getProductsSlugs } from '@/lib/supabase/queries'
 import ProductDetail from '@/components/store/ProductDetail'
 
 interface Props {
@@ -8,8 +8,7 @@ interface Props {
 
 // Genera páginas estáticas para todos los productos activos
 export async function generateStaticParams() {
-  const products = await getProducts()
-  return products.map(p => ({ slug: p.slug }))
+  return await getProductsSlugs()
 }
 
 export async function generateMetadata({ params }: Props) {

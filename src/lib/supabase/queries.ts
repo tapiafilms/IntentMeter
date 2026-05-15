@@ -2,7 +2,7 @@
 // lib/supabase/queries.ts
 // Funciones de query reutilizables — evita SQL repetido
 // ============================================================
-import { createClient } from './server'
+import { createClient, createStaticClient } from './server'
 import type { Product, Session, Conversation, WeeklyReport } from './types'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
@@ -34,6 +34,16 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 
   if (error) return null
   return data as Product
+}
+
+// Solo para generateStaticParams en build time (sin cookies)
+export async function getProductsSlugs(): Promise<{ slug: string }[]> {
+  const db = createStaticClient()
+  const { data } = await db.from('products')
+    .select('slug')
+    .eq('tenant_id', TENANT_ID)
+    .eq('active', true)
+  return (data || []) as { slug: string }[]
 }
 
 // ── Sesiones ──────────────────────────────────────────────────
