@@ -332,16 +332,15 @@ export default function AIWidget() {
       {!isOpen && (
         <button
           onClick={() => {
-            if (messages.length === 0) {
-              setMessages([{
-                role: 'assistant',
-                content: '¡Hola! 👋 Soy Sofía, tu asesora de moda. ¿En qué puedo ayudarte hoy?',
-                isNew: true
-              }])
-              setIsTypingEffect(true)
-            }
-            setIsOpen(true)
-          }}
+              if (messages.length === 0) {
+                const content = currentProduct
+                  ? `¡Hola! 👋 Veo que estás mirando ${currentProduct}. ¿Tienes alguna duda sobre esta prenda?`
+                  : '¡Hola! 👋 Soy Sofía, tu asesora de moda. ¿En qué puedo ayudarte hoy?'
+                setMessages([{ role: 'assistant', content, isNew: true }])
+                setIsTypingEffect(true)
+              }
+              setIsOpen(true)
+            }}
           className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full shadow-lg overflow-hidden transition-transform hover:scale-110 border-2 border-white/20 bg-[#1a1a2e]"
         >
           <video
