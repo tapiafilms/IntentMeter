@@ -73,7 +73,7 @@ export default function ProductDetail({ product }: Props) {
     setSelectedImage(index)
     // Mostrar comentario de Sofía solo al ver una foto que no es la primera
     if (index > 0 && !sofiaVisible) {
-      setSofiaComment(getSofiaComment(product.category))
+      setSofiaComment(getSofiaComment(product.category ?? undefined))
       setSofiaVisible(true)
       setTimeout(() => setSofiaVisible(false), 5000)
     }
