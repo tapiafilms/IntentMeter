@@ -351,17 +351,18 @@ export default function AIWidget() {
       {/* Widget chat horizontal pegado al borde derecho */}
       {isOpen && (
         <div
-          className={`fixed bottom-6 right-0 z-50 flex flex-row items-center gap-2 p-4 rounded-l-[40px] overflow-hidden ${isClosing ? 'animate-sofia-out' : 'animate-sofia-in'}`}
+          className={`fixed bottom-4 right-0 md:bottom-6 z-50 flex flex-row items-center gap-2 p-4 rounded-l-[30px] md:rounded-l-[40px] overflow-hidden ${isClosing ? 'animate-sofia-out' : 'animate-sofia-in'}`}
           style={{
             background: 'rgb(26, 26, 46)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
-            width: '520px',
-            boxShadow: 'none', // Eliminada la sombra
+            width: 'calc(100% - 1rem)',
+            maxWidth: '520px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
           }}
         >
           {/* Avatar integrado a la izquierda (reducido un 30%) */}
-          <div className="flex flex-col items-center flex-shrink-0">
-            <div className="relative w-20 h-20 overflow-hidden bg-transparent -mt-2">
+          <div className="flex flex-col items-center flex-shrink-0 scale-90 md:scale-100">
+            <div className="relative w-16 h-16 md:w-20 md:h-20 overflow-hidden bg-transparent -mt-2">
               <video
                 src={isNavigating || isTypingEffect ? "/avatar2.mp4" : "/avatar1.mp4"}
                 autoPlay
@@ -411,14 +412,14 @@ export default function AIWidget() {
             </div>
 
             {/* Input */}
-            <div className="relative flex items-center border border-white/20 rounded-full px-5 py-2 bg-transparent hover:border-white/40 transition-all focus-within:border-white/50">
+            <div className="relative flex items-center border border-white/20 rounded-full px-3 md:px-5 py-1.5 md:py-2 bg-transparent hover:border-white/40 transition-all focus-within:border-white/50">
               <input
                 type="text"
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && sendMessage()}
                 placeholder="Escribe tu mensaje..."
-                className="w-full text-sm outline-none bg-transparent text-white placeholder-white/30 py-1"
+                className="w-full text-[13px] md:text-sm outline-none bg-transparent text-white placeholder-white/30 py-1"
               />
               <button
                 onClick={sendMessage}
