@@ -8,7 +8,7 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero con Video de Fondo */}
+      {/* Hero con Video de Fondo y Overlay Azul */}
       <section className="relative h-[80vh] md:h-[90vh] overflow-hidden flex items-center">
         {/* Video Background */}
         <div className="absolute inset-0 z-0">
@@ -21,14 +21,14 @@ export default async function HomePage() {
           >
             <source src="/video-fondo-tienda.mp4" type="video/mp4" />
           </video>
-          {/* Overlay para asegurar legibilidad */}
+          {/* Overlay Azul con 30% Alpha */}
           <div 
-            className="absolute inset-0 bg-black/40" 
-            style={{ background: 'linear-gradient(to bottom, rgba(26,26,46,0.7) 0%, rgba(26,26,46,0.4) 100%)' }}
+            className="absolute inset-0 z-10" 
+            style={{ backgroundColor: 'rgba(26, 26, 46, 0.3)' }}
           />
         </div>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-6 w-full">
+        <div className="relative z-20 max-w-6xl mx-auto px-6 w-full">
           <div className="max-w-2xl animate-fade-up">
             <p className="text-sm font-medium tracking-widest mb-6"
               style={{ color: 'var(--color-accent)', letterSpacing: '0.2em' }}>
@@ -38,7 +38,7 @@ export default async function HomePage() {
               Piezas que<br />
               <span style={{ color: 'var(--color-accent)' }}>duran.</span>
             </h1>
-            <p className="text-lg mb-10" style={{ color: 'rgba(255,255,255,0.85)' }}>
+            <p className="text-lg mb-10" style={{ color: 'rgba(255,255,255,0.95)' }}>
               Cada prenda seleccionada con cuidado. Diseño atemporal para el día a día.
             </p>
             <div className="flex gap-4 flex-wrap">
