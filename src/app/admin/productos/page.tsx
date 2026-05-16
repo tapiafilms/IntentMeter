@@ -192,17 +192,32 @@ export default function AdminPage() {
       variants: editVariants,
       active: editActive,
     }
-    let err
+    let err, savedId: string | undefined
     if (editProduct.id) {
       ({ error: err } = await supabase.from('products').update(payload).eq('id', editProduct.id))
+      savedId = editProduct.id
     } else {
-      ({ error: err } = await supabase.from('products').insert(payload))
+      const { data: inserted, error: insertErr } = await supabase.from('products').insert(payload).select('id').single()
+      err = insertErr
+      savedId = inserted?.id
     }
     setSaving(false)
     if (err) { show('Error: ' + err.message, 'error'); return }
     show(editProduct.id ? 'Producto actualizado ✓' : 'Producto creado ✓', 'success')
     setModal(false)
     loadProducts()
+
+    // Generar embedding en segundo plano (no bloquea el flujo)
+    if (savedId && (payload.name || payload.description)) {
+      const text = [payload.name, payload.description, payload.category].filter(Boolean).join(' — ')
+      fetch('/api/embeddings/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: savedId, text }),
+      }).then(r => r.json()).then(r => {
+        if (r.ok) show(`Embedding generado ✓ (${r.dimensions} dimensiones)`, 'success')
+      }).catch(() => {}) // silencioso si falla
+    }
   }
 
   async function deleteProduct() {
