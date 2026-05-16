@@ -16,17 +16,68 @@ function formatPrice(price: number) {
   }).format(price)
 }
 
+const SOFIA_COMMENTS: Record<string, string[]> = {
+  vestidos: [
+    '¿Ves la caída del tejido? Es lo que lo hace especial ✨',
+    'Este es uno de mis favoritos de la temporada... ¿lo sentís?',
+    'La silueta que forma es perfecta para cualquier ocasión 🤍',
+  ],
+  abrigos: [
+    'La estructura de este abrigo es increíble, ¿no te parece?',
+    'Este tono es tendencia ahora mismo... muy versátil 🔥',
+    'Imagínatelo con botas altas. Una combinación perfecta ✨',
+  ],
+  blusas: [
+    'El corte de esta blusa estiliza muchísimo la figura 🤍',
+    'Este tejido es tan suave... ideal para el día a día ✨',
+    'Me encanta cómo queda con jeans o falda por igual 💫',
+  ],
+  pantalones: [
+    'El corte de tiro alto alarga la silueta, ¿lo notas? ✨',
+    'Este modelo combina con absolutamente todo 🤍',
+    'La tela cae perfecto, sin arrugarse durante el día 💫',
+  ],
+  accesorios: [
+    'Un detalle así transforma cualquier outfit al instante ✨',
+    'Este accesorio es de esos que usas con todo 🤍',
+    'Me encanta la calidad del material, se nota en las fotos 💫',
+  ],
+  default: [
+    '¿Ves los detalles en esta foto? Vale cada peso 🤍',
+    'Este es uno de mis favoritos de la colección ✨',
+    'La calidad se nota hasta en la foto... imagínatelo en persona 💫',
+  ],
+}
+
+function getSofiaComment(category?: string): string {
+  const key = category?.toLowerCase() ?? 'default'
+  const comments = SOFIA_COMMENTS[key] ?? SOFIA_COMMENTS.default
+  return comments[Math.floor(Math.random() * comments.length)]
+}
+
 export default function ProductDetail({ product }: Props) {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     product.variants.length > 0 ? product.variants[0] : null
   )
   const [selectedImage, setSelectedImage] = useState(0)
   const [added, setAdded] = useState(false)
+  const [sofiaComment, setSofiaComment] = useState<string | null>(null)
+  const [sofiaVisible, setSofiaVisible] = useState(false)
   const { addItem } = useCartStore()
 
   const hasVariants = product.variants.length > 0
   const inStock = selectedVariant ? selectedVariant.stock > 0 : true
   const isLowStock = selectedVariant && selectedVariant.stock > 0 && selectedVariant.stock <= 3
+
+  function handleImageSelect(index: number) {
+    setSelectedImage(index)
+    // Mostrar comentario de Sofía solo al ver una foto que no es la primera
+    if (index > 0 && !sofiaVisible) {
+      setSofiaComment(getSofiaComment(product.category))
+      setSofiaVisible(true)
+      setTimeout(() => setSofiaVisible(false), 5000)
+    }
+  }
 
   function handleAddToCart() {
     if (!inStock) return
@@ -40,8 +91,6 @@ export default function ProductDetail({ product }: Props) {
     })
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
-
-    // Dispara evento de tracking
     window.dispatchEvent(new CustomEvent('ti:add_to_cart', {
       detail: { product_id: product.id, variant: selectedVariant?.name }
     }))
@@ -76,6 +125,46 @@ export default function ProductDetail({ product }: Props) {
                 <span className="text-6xl opacity-10">◇</span>
               </div>
             )}
+
+            {/* ── Franja comentario de Sofía ── */}
+            <div
+              className="absolute bottom-0 left-0 right-0 flex items-center gap-3 px-4 py-3"
+              style={{
+                background: 'rgba(10, 10, 20, 0.82)',
+                backdropFilter: 'blur(8px)',
+                transition: 'transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease',
+                transform: sofiaVisible ? 'translateY(0)' : 'translateY(100%)',
+                opacity: sofiaVisible ? 1 : 0,
+                pointerEvents: sofiaVisible ? 'auto' : 'none',
+              }}
+            >
+              {/* Mini avatar */}
+              <div className="relative flex-shrink-0 w-8 h-8 rounded-full overflow-hidden border border-white/20 bg-[#1a1a2e]">
+                <video
+                  src="/avatar1.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                  style={{ mixBlendMode: 'screen' }}
+                />
+              </div>
+              {/* Texto */}
+              <p className="text-white text-sm leading-snug flex-1" style={{ fontStyle: 'italic' }}>
+                "{sofiaComment}"
+              </p>
+              {/* Cerrar */}
+              <button
+                onClick={() => setSofiaVisible(false)}
+                className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all hover:bg-white/20"
+                style={{ background: 'rgba(255,255,255,0.1)' }}
+              >
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Thumbnails */}
@@ -84,7 +173,7 @@ export default function ProductDetail({ product }: Props) {
               {product.images.map((img, i) => (
                 <button
                   key={i}
-                  onClick={() => setSelectedImage(i)}
+                  onClick={() => handleImageSelect(i)}
                   className="relative flex-shrink-0 overflow-hidden transition-all"
                   style={{
                     width: 72, height: 96,
@@ -104,7 +193,6 @@ export default function ProductDetail({ product }: Props) {
 
         {/* Info del producto */}
         <div className="flex flex-col">
-          {/* Categoría */}
           {product.category && (
             <p className="text-xs font-medium tracking-widest mb-3"
               style={{ color: 'var(--color-accent)', letterSpacing: '0.15em' }}>
@@ -112,17 +200,14 @@ export default function ProductDetail({ product }: Props) {
             </p>
           )}
 
-          {/* Nombre */}
           <h1 className="font-display text-3xl md:text-4xl font-bold mb-4 leading-tight">
             {product.name}
           </h1>
 
-          {/* Precio */}
           <p className="text-2xl font-semibold mb-6">
             {formatPrice(product.price + (selectedVariant?.price_modifier ?? 0))}
           </p>
 
-          {/* Descripción */}
           {product.description && (
             <p className="text-sm leading-relaxed mb-8"
               style={{ color: 'var(--color-text-secondary)' }}>
@@ -130,7 +215,6 @@ export default function ProductDetail({ product }: Props) {
             </p>
           )}
 
-          {/* Selector de variantes */}
           {hasVariants && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-3">
@@ -174,8 +258,6 @@ export default function ProductDetail({ product }: Props) {
                   )
                 })}
               </div>
-
-              {/* Stock bajo */}
               {isLowStock && (
                 <p className="mt-3 text-xs font-medium" style={{ color: '#c05621' }}>
                   ⚡ Solo quedan {selectedVariant!.stock} unidades
@@ -184,17 +266,12 @@ export default function ProductDetail({ product }: Props) {
             </div>
           )}
 
-          {/* Botón agregar al carrito */}
           <button
             onClick={handleAddToCart}
             disabled={!inStock}
             className="w-full py-4 px-8 rounded-full font-medium text-sm transition-all mb-4"
             style={{
-              background: added
-                ? '#22c55e'
-                : inStock
-                ? 'var(--color-brand)'
-                : 'var(--color-border)',
+              background: added ? '#22c55e' : inStock ? 'var(--color-brand)' : 'var(--color-border)',
               color: inStock ? 'white' : 'var(--color-text-muted)',
               cursor: inStock ? 'pointer' : 'not-allowed',
               transform: added ? 'scale(0.98)' : 'scale(1)',
@@ -203,7 +280,6 @@ export default function ProductDetail({ product }: Props) {
             {added ? '✓ Agregado al carrito' : !inStock ? 'Sin stock' : 'Agregar al carrito'}
           </button>
 
-          {/* Info envío */}
           <button
             className="w-full py-3 px-8 rounded-full font-medium text-sm border transition-all"
             style={{
@@ -215,7 +291,6 @@ export default function ProductDetail({ product }: Props) {
             Ver info de envío y devoluciones
           </button>
 
-          {/* Metadata del producto */}
           {Object.keys(product.metadata).length > 0 && (
             <div
               className="mt-8 pt-8 border-t space-y-3"
