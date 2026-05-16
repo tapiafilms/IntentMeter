@@ -8,23 +8,26 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero con Video de Fondo y Overlay Azul */}
-      <section className="relative h-[80vh] md:h-[90vh] overflow-hidden flex items-center">
-        {/* Video Background */}
+      {/* Hero con Fondo Azul y Video Sutil (30% Opacidad) */}
+      <section 
+        className="relative h-[80vh] md:h-[90vh] overflow-hidden flex items-center"
+        style={{ backgroundColor: 'var(--color-brand)' }}
+      >
+        {/* Video Background con Opacidad Reducida */}
         <div className="absolute inset-0 z-0">
           <video
             autoPlay
             loop
             muted
             playsInline
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover opacity-30"
           >
             <source src="/video-fondo-tienda.mp4" type="video/mp4" />
           </video>
-          {/* Overlay Azul con 30% Alpha */}
+          {/* Overlay suave para integrar mejor el video con el fondo azul */}
           <div 
             className="absolute inset-0 z-10" 
-            style={{ backgroundColor: 'rgba(26, 26, 46, 0.3)' }}
+            style={{ background: 'linear-gradient(to bottom, rgba(26,26,46,0.5) 0%, transparent 100%)' }}
           />
         </div>
 
