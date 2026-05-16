@@ -69,9 +69,13 @@ export default function AIWidget() {
   }, [navigationTarget])
 
   useEffect(() => {
-    const intent = getIntent()
-    setIntentState(intent)
-  }, [pathname])
+  const intent = getIntent()
+  setIntentState(intent)
+  // Cerrar Sofía al navegar a otra página
+  if (isOpen) {
+    closeChat()
+  }
+}, [pathname])
 
   useEffect(() => {
     if (pathname.includes('/producto/')) {
