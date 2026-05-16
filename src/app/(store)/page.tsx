@@ -20,7 +20,7 @@ export default async function HomePage() {
             loop
             muted
             playsInline
-            className="w-full h-full object-cover opacity-30"
+            className="w-full h-full object-cover opacity-10"
           >
             <source src="/video-fondo-tienda.mp4" type="video/mp4" />
           </video>
