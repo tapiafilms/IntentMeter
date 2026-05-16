@@ -8,19 +8,27 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero */}
-      <section
-        className="relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-mid) 100%)' }}
-      >
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-96 h-96 rounded-full"
-            style={{ background: 'var(--color-accent)', filter: 'blur(80px)', transform: 'translate(30%, -30%)' }} />
-          <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full"
-            style={{ background: 'var(--color-accent)', filter: 'blur(60px)', transform: 'translate(-30%, 30%)' }} />
+      {/* Hero con Video de Fondo */}
+      <section className="relative h-[80vh] md:h-[90vh] overflow-hidden flex items-center">
+        {/* Video Background */}
+        <div className="absolute inset-0 z-0">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          >
+            <source src="/video-fondo-tienda.mp4" type="video/mp4" />
+          </video>
+          {/* Overlay para asegurar legibilidad */}
+          <div 
+            className="absolute inset-0 bg-black/40" 
+            style={{ background: 'linear-gradient(to bottom, rgba(26,26,46,0.7) 0%, rgba(26,26,46,0.4) 100%)' }}
+          />
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-6 py-28 md:py-40">
+        <div className="relative z-10 max-w-6xl mx-auto px-6 w-full">
           <div className="max-w-2xl animate-fade-up">
             <p className="text-sm font-medium tracking-widest mb-6"
               style={{ color: 'var(--color-accent)', letterSpacing: '0.2em' }}>
@@ -30,7 +38,7 @@ export default async function HomePage() {
               Piezas que<br />
               <span style={{ color: 'var(--color-accent)' }}>duran.</span>
             </h1>
-            <p className="text-lg mb-10" style={{ color: 'rgba(255,255,255,0.65)' }}>
+            <p className="text-lg mb-10" style={{ color: 'rgba(255,255,255,0.85)' }}>
               Cada prenda seleccionada con cuidado. Diseño atemporal para el día a día.
             </p>
             <div className="flex gap-4 flex-wrap">
