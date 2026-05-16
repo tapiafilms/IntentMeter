@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
+
 type Product = {
   id: string
   tenant_id?: string
@@ -183,6 +185,7 @@ export default function AdminPage() {
     if (!editProduct.name) { show('El nombre es obligatorio', 'error'); return }
     setSaving(true)
     const payload = {
+      tenant_id: process.env.NEXT_PUBLIC_TENANT_ID,
       name: editProduct.name,
       slug: editProduct.slug || toSlug(editProduct.name),
       price: Number(editProduct.price) || 0,
