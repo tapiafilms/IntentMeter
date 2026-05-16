@@ -81,6 +81,9 @@ export default function AIWidget() {
     if (pathname.includes('/producto/')) {
       const slug = pathname.split('/producto/')[1]
       setCurrentProduct(slug?.replace(/-/g, ' '))
+      // Resetear mensajes al cambiar de producto
+    setMessages([])
+    setGreeting('')
 
       const target = navigationTargetRef.current
       if (target && slug === target.slug && lastProcessedSlug.current !== slug) {
