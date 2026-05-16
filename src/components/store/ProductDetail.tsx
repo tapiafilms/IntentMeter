@@ -125,12 +125,13 @@ export default function ProductDetail({ product }: Props) {
             <div
               className="absolute bottom-0 left-0 right-0 flex items-center gap-3 px-4 py-3"
               style={{
-                background: 'rgba(10, 10, 20, 0.82)',
+                background: 'linear-gradient(to top, rgba(10,10,20,0.95) 0%, rgba(10,10,20,0.7) 100%)',
                 backdropFilter: 'blur(8px)',
                 transition: 'transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease',
                 transform: sofiaVisible ? 'translateY(0)' : 'translateY(100%)',
                 opacity: sofiaVisible ? 1 : 0,
                 pointerEvents: sofiaVisible ? 'auto' : 'none',
+                padding: '20px 16px 24px',
               }}
             >
               {/* Mini avatar */}
