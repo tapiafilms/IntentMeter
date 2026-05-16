@@ -10,7 +10,7 @@ export default async function HomePage() {
     <>
       {/* Hero con Fondo Azul y Video Sutil (30% Opacidad) */}
       <section 
-        className="relative h-[80vh] md:h-[90vh] overflow-hidden flex items-center"
+        className="relative h-[66vh] overflow-hidden flex items-center"
         style={{ backgroundColor: 'var(--color-brand)' }}
       >
         {/* Video Background con Opacidad Reducida */}
