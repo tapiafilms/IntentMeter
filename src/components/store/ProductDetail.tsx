@@ -16,43 +16,19 @@ function formatPrice(price: number) {
   }).format(price)
 }
 
-const SOFIA_COMMENTS: Record<string, string[]> = {
-  vestidos: [
-    '¿Ves la caída del tejido? Es lo que lo hace especial ✨',
-    'Este es uno de mis favoritos de la temporada... ¿lo sentís?',
-    'La silueta que forma es perfecta para cualquier ocasión 🤍',
-  ],
-  abrigos: [
-    'La estructura de este abrigo es increíble, ¿no te parece?',
-    'Este tono es tendencia ahora mismo... muy versátil 🔥',
-    'Imagínatelo con botas altas. Una combinación perfecta ✨',
-  ],
-  blusas: [
-    'El corte de esta blusa estiliza muchísimo la figura 🤍',
-    'Este tejido es tan suave... ideal para el día a día ✨',
-    'Me encanta cómo queda con jeans o falda por igual 💫',
-  ],
-  pantalones: [
-    'El corte de tiro alto alarga la silueta, ¿lo notas? ✨',
-    'Este modelo combina con absolutamente todo 🤍',
-    'La tela cae perfecto, sin arrugarse durante el día 💫',
-  ],
-  accesorios: [
-    'Un detalle así transforma cualquier outfit al instante ✨',
-    'Este accesorio es de esos que usas con todo 🤍',
-    'Me encanta la calidad del material, se nota en las fotos 💫',
-  ],
-  default: [
-    '¿Ves los detalles en esta foto? Vale cada peso 🤍',
-    'Este es uno de mis favoritos de la colección ✨',
-    'La calidad se nota hasta en la foto... imagínatelo en persona 💫',
-  ],
+// Comentarios de respaldo por si falla la API
+const FALLBACK_COMMENTS: Record<string, string> = {
+  vestidos: 'La caída de este tejido es increíble, ¿lo notas? ✨',
+  abrigos: 'La estructura de este abrigo es perfecta, ¿no te parece? 🤍',
+  blusas: 'El corte estiliza muchísimo la figura, ¿lo ves? ✨',
+  pantalones: 'Este modelo combina con absolutamente todo, ¿lo notas? 🤍',
+  accesorios: 'Un detalle así transforma cualquier outfit, ¿no te parece? ✨',
+  default: 'La calidad se nota hasta en la foto, ¿no te parece? 🤍',
 }
 
-function getSofiaComment(category?: string): string {
+function getFallbackComment(category?: string | null): string {
   const key = category?.toLowerCase() ?? 'default'
-  const comments = SOFIA_COMMENTS[key] ?? SOFIA_COMMENTS.default
-  return comments[Math.floor(Math.random() * comments.length)]
+  return FALLBACK_COMMENTS[key] ?? FALLBACK_COMMENTS.default
 }
 
 export default function ProductDetail({ product }: Props) {
@@ -69,13 +45,32 @@ export default function ProductDetail({ product }: Props) {
   const inStock = selectedVariant ? selectedVariant.stock > 0 : true
   const isLowStock = selectedVariant && selectedVariant.stock > 0 && selectedVariant.stock <= 3
 
-  function handleImageSelect(index: number) {
+  async function handleImageSelect(index: number) {
     setSelectedImage(index)
     // Mostrar comentario de Sofía solo al ver una foto que no es la primera
     if (index > 0 && !sofiaVisible) {
-      setSofiaComment(getSofiaComment(product.category ?? undefined))
+      // Mostrar fallback inmediato mientras carga la IA
+      setSofiaComment(getFallbackComment(product.category))
       setSofiaVisible(true)
-      setTimeout(() => setSofiaVisible(false), 5000)
+
+      // Luego reemplazar con comentario generado por IA
+      try {
+        const res = await fetch('/api/sofia-comment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: product.name,
+            description: product.description,
+            category: product.category,
+          }),
+        })
+        const data = await res.json()
+        if (data.comment) setSofiaComment(data.comment)
+      } catch {
+        // Mantiene el fallback si falla la API
+      }
+
+      setTimeout(() => setSofiaVisible(false), 6000)
     }
   }
 
