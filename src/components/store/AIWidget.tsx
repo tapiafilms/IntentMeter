@@ -335,7 +335,7 @@ export default function AIWidget() {
             }
             setIsOpen(true)
           }}
-          className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full shadow-lg overflow-hidden transition-transform hover:scale-110 border-2 border-white/20 bg-black"
+          className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full shadow-lg overflow-hidden transition-transform hover:scale-110 border-2 border-white/20 bg-[#1a1a2e]"
         >
           <video
             src="/avatar1.mp4"
@@ -344,6 +344,7 @@ export default function AIWidget() {
             muted
             playsInline
             className="w-full h-full object-cover"
+            style={{ mixBlendMode: 'screen' }}
           />
         </button>
       )}
@@ -362,7 +363,7 @@ export default function AIWidget() {
         >
           {/* Avatar integrado a la izquierda (reducido un 30%) */}
           <div className="flex flex-col items-center flex-shrink-0 scale-90 md:scale-100">
-            <div className="relative w-16 h-16 md:w-20 md:h-20 overflow-hidden bg-transparent -mt-2">
+            <div className="relative w-16 h-16 md:w-20 md:h-20 overflow-hidden bg-[#1a1a2e] -mt-2">
               <video
                 src={isNavigating || isTypingEffect ? "/avatar2.mp4" : "/avatar1.mp4"}
                 autoPlay
