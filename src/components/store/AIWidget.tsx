@@ -84,6 +84,7 @@ export default function AIWidget() {
       // Resetear mensajes al cambiar de producto
     setMessages([])
     setGreeting('')
+    setIsTypingEffect(false)
 
       const target = navigationTargetRef.current
       if (target && slug === target.slug && lastProcessedSlug.current !== slug) {

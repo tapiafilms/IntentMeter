@@ -13,6 +13,11 @@ export default function TypingText({ text, speed = 25, onComplete }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0)
 
   useEffect(() => {
+    setDisplayedText('')
+    setCurrentIndex(0)
+  }, [text])
+
+  useEffect(() => {
     if (currentIndex < text.length) {
       const timeout = setTimeout(() => {
         setDisplayedText(prev => prev + text[currentIndex])
