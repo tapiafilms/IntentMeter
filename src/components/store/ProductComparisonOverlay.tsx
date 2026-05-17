@@ -30,6 +30,14 @@ export default function ProductComparisonOverlay({ slugs, onSelect, onClose }: P
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<string | null>(null)
+  const [visible, setVisible] = useState(false)
+  const [closing, setClosing] = useState(false)
+
+  // Animación de entrada
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 30)
+    return () => clearTimeout(t)
+  }, [])
 
   useEffect(() => {
     async function loadProducts() {
@@ -50,21 +58,39 @@ export default function ProductComparisonOverlay({ slugs, onSelect, onClose }: P
     loadProducts()
   }, [slugs])
 
+  const handleClose = () => {
+    setClosing(true)
+    setVisible(false)
+    setTimeout(() => onClose(), 400)
+  }
+
   const handleSelect = (product: Product) => {
     setSelected(product.slug)
     setTimeout(() => {
-      onSelect(product.slug, product)
-    }, 600)
+      setClosing(true)
+      setVisible(false)
+      setTimeout(() => onSelect(product.slug, product), 400)
+    }, 500)
   }
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
-      style={{ background: 'rgba(15,15,30,0.85)', backdropFilter: 'blur(8px)' }}
+      style={{
+        background: `rgba(15,15,30,${visible ? 0.85 : 0})`,
+        backdropFilter: 'blur(8px)',
+        transition: 'background 0.4s ease',
+      }}
     >
       <div
         className="w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl"
-        style={{ background: '#1a1a2e', border: '1px solid rgba(226,185,111,0.2)' }}
+        style={{
+          background: '#1a1a2e',
+          border: '1px solid rgba(226,185,111,0.2)',
+          transform: visible ? 'translateY(0) scale(1)' : 'translateY(32px) scale(0.97)',
+          opacity: visible ? 1 : 0,
+          transition: 'transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease',
+        }}
       >
         {/* Header */}
         <div
@@ -80,7 +106,7 @@ export default function ProductComparisonOverlay({ slugs, onSelect, onClose }: P
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:bg-white/10"
             style={{ color: 'rgba(255,255,255,0.4)' }}
           >
@@ -106,7 +132,7 @@ export default function ProductComparisonOverlay({ slugs, onSelect, onClose }: P
                 gridTemplateColumns: `repeat(${Math.min(products.length, 4)}, 1fr)`,
               }}
             >
-              {products.map(product => (
+              {products.map((product, i) => (
                 <button
                   key={product.slug}
                   onClick={() => handleSelect(product)}
@@ -116,7 +142,11 @@ export default function ProductComparisonOverlay({ slugs, onSelect, onClose }: P
                     border: selected === product.slug
                       ? '2px solid #e2b96f'
                       : '2px solid rgba(255,255,255,0.08)',
-                    transform: selected === product.slug ? 'scale(1.02)' : 'scale(1)',
+                    transform: visible
+                      ? selected === product.slug ? 'scale(1.02)' : 'scale(1)'
+                      : 'translateY(16px)',
+                    opacity: visible ? 1 : 0,
+                    transition: `transform 0.4s cubic-bezier(0.4,0,0.2,1) ${i * 60}ms, opacity 0.4s ease ${i * 60}ms, border 0.2s ease`,
                   }}
                 >
                   {/* Imagen */}
@@ -191,7 +221,7 @@ export default function ProductComparisonOverlay({ slugs, onSelect, onClose }: P
             Haz clic en cualquier prenda para ver los detalles
           </p>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-xs px-4 py-2 rounded-full transition-all hover:bg-white/10"
             style={{ color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}
           >
