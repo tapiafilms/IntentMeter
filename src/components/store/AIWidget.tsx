@@ -214,6 +214,7 @@ export default function AIWidget() {
             intentScore: intentState.score,
             currentProduct,
             triggerReason: greeting,
+            activeComparison: compareProducts ?? undefined,
           },
         }),
       })

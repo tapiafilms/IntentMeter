@@ -8,6 +8,7 @@ interface ChatBody {
     intentScore: number
     currentProduct?: string
     triggerReason: string
+    activeComparison?: string[]
   }
 }
 
@@ -37,6 +38,9 @@ export async function POST(req: NextRequest) {
       'Nivel de intencion: ' + context.intentType + ' (score: ' + context.intentScore + '/100)',
       'Razon de apertura: ' + context.triggerReason,
       context.currentProduct ? 'Producto que esta viendo: ' + context.currentProduct : '',
+      context.activeComparison?.length
+        ? 'COMPARATIVA ACTIVA: La usuaria acaba de ver estas opciones simultaneas: ' + context.activeComparison.join(', ') + '. Su siguiente mensaje elige una de ellas.'
+        : '',
       '',
       'REGLAS:',
       '- Responde SIEMPRE en espanol chileno, calido y cercano',
@@ -48,6 +52,7 @@ export async function POST(req: NextRequest) {
       '- Cambios: 30 dias sin preguntas',
       '- Si el score es mayor a 60, se mas proactiva en cerrar la venta',
       '- Termina siempre con una pregunta o llamada a la accion',
+      '- Si hay COMPARATIVA ACTIVA y el usuario elige una opcion, responde SIEMPRE con redirect_to al slug correcto, NUNCA vuelvas a usar compare_products',
       '',
       'FORMATO DE RESPUESTA - responde SIEMPRE con JSON puro sin markdown:',
       'Ejemplo normal: {"message": "tu respuesta", "redirect_to": null, "ask_add_to_cart": false, "compare_products": null}',
