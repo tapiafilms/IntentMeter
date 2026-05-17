@@ -15,6 +15,7 @@ interface Product {
 interface Props {
   slugs: string[]
   onSelect: (slug: string, product: Product) => void
+  onRegisterClose: (fn: () => void) => void
   onClose: () => void
 }
 
@@ -26,7 +27,7 @@ function formatPrice(price: number) {
   }).format(price)
 }
 
-export default function ProductComparisonOverlay({ slugs, onSelect, onClose }: Props) {
+export default function ProductComparisonOverlay({ slugs, onSelect, onRegisterClose, onClose }: Props) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<string | null>(null)
@@ -37,6 +38,17 @@ export default function ProductComparisonOverlay({ slugs, onSelect, onClose }: P
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 30)
     return () => clearTimeout(t)
+  }, [])
+
+  // Registrar función de cierre con animación en el padre
+  const handleClose = () => {
+    setClosing(true)
+    setVisible(false)
+    setTimeout(() => onClose(), 400)
+  }
+
+  useEffect(() => {
+    onRegisterClose(handleClose)
   }, [])
 
   useEffect(() => {
@@ -57,12 +69,6 @@ export default function ProductComparisonOverlay({ slugs, onSelect, onClose }: P
     }
     loadProducts()
   }, [slugs])
-
-  const handleClose = () => {
-    setClosing(true)
-    setVisible(false)
-    setTimeout(() => onClose(), 400)
-  }
 
   const handleSelect = (product: Product) => {
     setSelected(product.slug)

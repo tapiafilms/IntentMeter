@@ -59,6 +59,7 @@ export default function AIWidget() {
   const lastProcessedSlug = useRef<string | null>(null)
   const navigationTargetRef = useRef<{ slug: string; askAddToCart: boolean } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const closeCompareRef = useRef<(() => void) | null>(null)
   const pathname = usePathname()
   const router = useRouter()
   const { addItem, openCart } = useCartStore()
@@ -188,9 +189,10 @@ export default function AIWidget() {
   const sendMessage = async () => {
   if (!input.trim() || isLoading || isTypingEffect) return
 
-  // Si hay comparativa activa, cerrarla antes de procesar el mensaje
+  // Si hay comparativa activa, cerrarla con animación antes de procesar el mensaje
   if (compareProducts) {
-    setCompareProducts(null)
+    closeCompareRef.current?.()
+    await new Promise(r => setTimeout(r, 400))
   }
 
   useCartStore.getState().closeCart()
@@ -322,6 +324,7 @@ export default function AIWidget() {
         <ProductComparisonOverlay
           slugs={compareProducts}
           onSelect={handleCompareSelect}
+          onRegisterClose={(fn) => { closeCompareRef.current = fn }}
           onClose={() => {
             setCompareProducts(null)
             setMessages(prev => [...prev, {
