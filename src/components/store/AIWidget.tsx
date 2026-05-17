@@ -186,9 +186,14 @@ export default function AIWidget() {
   }
 
   const sendMessage = async () => {
-    if (!input.trim() || isLoading || isTypingEffect || compareProducts) return
+  if (!input.trim() || isLoading || isTypingEffect) return
 
-    useCartStore.getState().closeCart()
+  // Si hay comparativa activa, cerrarla antes de procesar el mensaje
+  if (compareProducts) {
+    setCompareProducts(null)
+  }
+
+  useCartStore.getState().closeCart()
 
     const userMessage: Message = { role: 'user', content: input }
     const newMessages = [...messages, userMessage]
@@ -425,13 +430,13 @@ export default function AIWidget() {
                 type="text"
                 value={input}
                 onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !compareProducts && sendMessage()}
+                onKeyDown={e => e.key === 'Enter' && sendMessage()}
                 placeholder="Escribe tu mensaje..."
                 className="w-full text-[13px] md:text-sm outline-none bg-transparent text-white placeholder-white/30 py-1"
               />
               <button
                 onClick={sendMessage}
-                disabled={isLoading || !input.trim() || isNavigating || isTypingEffect || !!compareProducts}
+                disabled={isLoading || !input.trim() || isNavigating || isTypingEffect}
                 className="ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/5 text-white disabled:opacity-20 hover:bg-white/10"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
