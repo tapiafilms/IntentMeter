@@ -3,7 +3,7 @@
 // Dashboard de administración — Tienda Inteligente
 // ============================================================
 import { createClient } from '@/lib/supabase/server'
-import type { Session, SessionEvent } from '@/lib/supabase/types'
+import type { Session, SessionEvent, Conversation, WeeklyReport } from '@/lib/supabase/types'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
 
@@ -24,13 +24,34 @@ async function getDashboardData() {
     .eq('tenant_id', TENANT_ID)
     .gte('created_at', since7days)
 
-  return { sessions: sessions ?? [], events: events ?? [] }
+  const { data: conversations } = await db
+    .from('conversations')
+    .select('objections, messages, product_id, outcome, created_at')
+    .eq('tenant_id', TENANT_ID)
+    .gte('created_at', since7days)
+
+  const { data: weeklyReport } = await db
+    .from('weekly_reports')
+    .select('*')
+    .eq('tenant_id', TENANT_ID)
+    .order('week_start', { ascending: false })
+    .limit(1)
+    .single()
+
+  return {
+    sessions: sessions ?? [],
+    events: events ?? [],
+    conversations: conversations ?? [],
+    weeklyReport: weeklyReport ?? null,
+  }
 }
 
 export default async function AdminPage() {
   const data = await getDashboardData()
   const sessions = data.sessions as Session[]
   const events = data.events as SessionEvent[]
+  const conversations = data.conversations as Conversation[]
+  const weeklyReport = data.weeklyReport as WeeklyReport | null
 
   const totalSessions = sessions.length
   const converted = sessions.filter(s => s.converted).length
@@ -57,6 +78,51 @@ export default async function AdminPage() {
   const cartEvents = events.filter(e => e.type === 'add_to_cart').length
   const exitEvents = events.filter(e => e.type === 'exit_intent').length
   const recentSessions = sessions.slice(0, 8)
+
+  // Objections / preguntas frecuentes a Sofía
+  const objectionCounts: Record<string, number> = {}
+  conversations.forEach(c => {
+    const conv = c as any
+    conv.objections?.forEach((obj: string) => {
+      objectionCounts[obj] = (objectionCounts[obj] || 0) + 1
+    })
+  })
+  const topObjections = Object.entries(objectionCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6)
+
+  // Productos con más exit intent
+  const exitByProduct: Record<string, number> = {}
+  events.filter(e => e.type === 'exit_intent').forEach(e => {
+    const slug = (e.payload as any)?.slug ?? (e.payload as any)?.currentProduct ?? 'inicio'
+    exitByProduct[slug] = (exitByProduct[slug] || 0) + 1
+  })
+  const topExits = Object.entries(exitByProduct)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+
+  // Productos más comparados (desde session_events tipo compare si existe, o desde conversations)
+  const compareCounts: Record<string, number> = {}
+  conversations.forEach(c => {
+    const conv = c as any
+    // Buscar mensajes donde la IA mostró compare_products
+    conv.messages?.forEach((m: any) => {
+      if (m.role === 'assistant' && m.content?.includes('compare')) {
+        // fallback: contar por product_id
+      }
+    })
+    if (conv.product_id) {
+      compareCounts[conv.product_id] = (compareCounts[conv.product_id] || 0) + 1
+    }
+  })
+  events.filter(e => e.type === 'product_view').forEach(e => {
+    const slug = (e.payload as any)?.slug
+    if (slug) compareCounts[slug] = (compareCounts[slug] || 0) + 1
+  })
+
+  // Tasa de conversión asistida por Sofía
+  const sofiaConversations = conversations.length
+  const sofiaConverted = conversations.filter(c => (c as any).outcome === 'converted').length
 
   const INTENT_COLORS: Record<string, string> = {
     curious: '#94a3b8', undecided: '#f59e0b', comparator: '#3b82f6',
@@ -129,6 +195,85 @@ export default async function AdminPage() {
                     <span className="text-xs font-bold w-5" style={{ color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
                     <p className="flex-1 text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{slug.replace(/-/g, ' ')}</p>
                     <span className="text-xs font-bold" style={{ color: '#e2b96f' }}>{count} vistas</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sofía en números */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="rounded-2xl p-5 md:col-span-1" style={{ background: 'rgba(226,185,111,0.06)', border: '1px solid rgba(226,185,111,0.2)' }}>
+            <p className="text-xs mb-1" style={{ color: 'rgba(226,185,111,0.6)' }}>✦ SOFÍA EN NÚMEROS</p>
+            <p className="text-3xl font-bold mb-1" style={{ color: '#e2b96f' }}>{sofiaConversations}</p>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>conversaciones esta semana</p>
+            <div className="h-px mb-4" style={{ background: 'rgba(226,185,111,0.15)' }} />
+            <p className="text-3xl font-bold mb-1" style={{ color: '#22c55e' }}>{sofiaConverted}</p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>conversiones asistidas por IA</p>
+          </div>
+
+          {/* Preguntas / objeciones frecuentes */}
+          <div className="rounded-2xl p-6 md:col-span-2" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Lo que más preguntan</h2>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Objeciones y dudas capturadas por Sofía</p>
+            {topObjections.length === 0 ? (
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún — las objeciones se registran al conversar con Sofía</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {topObjections.map(([text, count]) => (
+                  <span key={text} className="px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5"
+                    style={{ background: 'rgba(226,185,111,0.1)', border: '1px solid rgba(226,185,111,0.2)', color: '#e2b96f' }}>
+                    {text}
+                    <span className="px-1.5 py-0.5 rounded-full text-xs font-bold" style={{ background: 'rgba(226,185,111,0.2)', color: '#e2b96f' }}>{count}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Productos: vistos vs abandonados */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Productos con más abandonos</h2>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Exit intent detectado por página</p>
+            {topExits.length === 0 ? (
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún</p>
+            ) : (
+              <div className="space-y-3">
+                {topExits.map(([slug, count], i) => (
+                  <div key={slug} className="flex items-center gap-3">
+                    <span className="text-xs font-bold w-5" style={{ color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
+                    <p className="flex-1 text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{slug.replace(/-/g, ' ')}</p>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>
+                      {count} salidas
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Reporte semanal IA */}
+          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Resumen semanal de Sofía</h2>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Generado automáticamente por IA</p>
+            {!weeklyReport ? (
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin reporte semanal aún — se genera automáticamente cada lunes</p>
+            ) : (
+              <div className="space-y-3">
+                {weeklyReport.summary_text && (
+                  <p className="text-xs leading-relaxed p-3 rounded-xl" style={{ background: 'rgba(226,185,111,0.06)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(226,185,111,0.1)' }}>
+                    {weeklyReport.summary_text}
+                  </p>
+                )}
+                {weeklyReport.insights?.slice(0, 3).map((insight, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span>{insight.type === 'success' ? '✓' : insight.type === 'warning' ? '⚠' : '→'}</span>
+                    <span style={{ color: insight.type === 'success' ? '#22c55e' : insight.type === 'warning' ? '#f59e0b' : '#3b82f6' }}>
+                      {insight.message}
+                    </span>
                   </div>
                 ))}
               </div>

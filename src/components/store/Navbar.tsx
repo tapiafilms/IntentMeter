@@ -47,6 +47,20 @@ export default function Navbar() {
 
         {/* Acciones */}
         <div className="flex items-center gap-4">
+          {/* Badge IA */}
+          <div
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold select-none"
+            style={{
+              background: 'linear-gradient(135deg, #1a1a2e 0%, #2d1b69 100%)',
+              color: '#e2b96f',
+              border: '1px solid rgba(226,185,111,0.3)',
+              letterSpacing: '0.02em',
+            }}
+          >
+            <span style={{ fontSize: '10px' }}>✦</span>
+            <span>Asistida con IA — aprovéchala</span>
+          </div>
+
           <button
             onClick={toggleCart}
             className="relative flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-70"

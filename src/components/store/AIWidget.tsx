@@ -266,6 +266,7 @@ export default function AIWidget() {
         }
 
         // Navegar sin esperar que termine el typing
+        saveConversation('converted')
         setTimeout(() => {
           router.push(`/producto/${data.redirect_to}`)
         }, 1500)
@@ -289,7 +290,20 @@ export default function AIWidget() {
     }
   }
 
+  const saveConversation = (outcome: 'converted' | 'abandoned' | 'ongoing' = 'abandoned') => {
+    if (messages.length === 0) return
+    const sessionId = typeof window !== 'undefined' ? localStorage.getItem('ti_session_id') : null
+    if (!sessionId) return
+    // fire and forget — no awaiting to not block UI
+    fetch('/api/save-conversation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, messages, outcome }),
+    }).catch(() => {})
+  }
+
   const closeChat = () => {
+    saveConversation('abandoned')
     setIsClosing(true)
     setTimeout(() => {
       setIsOpen(false)
