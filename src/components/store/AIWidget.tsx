@@ -229,42 +229,34 @@ export default function AIWidget() {
         return
       }
 
-      // Navegar a producto específico
+      // Navegar a producto específico - en paralelo con el typing
       if (data.redirect_to) {
-        const typingDuration = data.message.length * 25 + 500
+        setIsNavigating(true)
+        setNavigationTarget({
+          slug: data.redirect_to,
+          askAddToCart: !!data.ask_add_to_cart
+        })
+
+        if (data.ask_add_to_cart) {
+          fetch(`/api/product?slug=${data.redirect_to}`)
+            .then(res => res.json())
+            .then(productData => {
+              if (productData) {
+                setPendingProduct({
+                  slug: data.redirect_to,
+                  name: productData.name,
+                  price: productData.price,
+                  productId: productData.id,
+                })
+              }
+            })
+            .catch(() => {})
+        }
+
+        // Navegar sin esperar que termine el typing
         setTimeout(() => {
-          setIsNavigating(true)
-          setNavigationTarget({
-            slug: data.redirect_to,
-            askAddToCart: !!data.ask_add_to_cart
-          })
-          setMessages(prev => [...prev, {
-            role: 'assistant',
-            content: `Buscando... 🔍`,
-            isNew: true
-          }])
-          setIsTypingEffect(true)
-
-          if (data.ask_add_to_cart) {
-            fetch(`/api/product?slug=${data.redirect_to}`)
-              .then(res => res.json())
-              .then(productData => {
-                if (productData) {
-                  setPendingProduct({
-                    slug: data.redirect_to,
-                    name: productData.name,
-                    price: productData.price,
-                    productId: productData.id,
-                  })
-                }
-              })
-              .catch(() => {})
-          }
-
-          setTimeout(() => {
-            router.push(`/producto/${data.redirect_to}`)
-          }, 1500)
-        }, typingDuration)
+          router.push(`/producto/${data.redirect_to}`)
+        }, 1500)
       }
     } catch {
       setMessages(prev => [...prev, {
