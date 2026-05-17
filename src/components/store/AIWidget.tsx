@@ -113,10 +113,21 @@ export default function AIWidget() {
             console.error('Error fetching product details for Sofia:', err)
           }
         }, 2000)
+      } else if (isNavigating) {
+        // Safety: llegamos a un producto pero el slug no coincidía con el target
+        setIsNavigating(false)
+        setNavigationTarget(null)
+        navigationTargetRef.current = null
       }
     } else {
       setCurrentProduct(undefined)
       lastProcessedSlug.current = null
+      // Safety: si navegamos fuera de un producto también limpiamos
+      if (isNavigating) {
+        setIsNavigating(false)
+        setNavigationTarget(null)
+        navigationTargetRef.current = null
+      }
     }
   }, [pathname])
 
