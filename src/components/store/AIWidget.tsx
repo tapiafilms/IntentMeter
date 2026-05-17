@@ -243,6 +243,37 @@ export default function AIWidget() {
 
       // Navegar a producto específico - en paralelo con el typing
       if (data.redirect_to) {
+        const currentSlug = pathname.split('/producto/')[1]
+        const alreadyOnProduct = currentSlug === data.redirect_to
+
+        // Si ya estamos en el producto y se quiere agregar al carrito, hacerlo directo
+        if (data.ask_add_to_cart && alreadyOnProduct) {
+          fetch(`/api/product?slug=${data.redirect_to}`)
+            .then(res => res.json())
+            .then(productData => {
+              if (productData) {
+                addItem({
+                  productId: productData.id,
+                  productName: productData.name,
+                  variant: 'Único',
+                  price: productData.price,
+                  qty: 1,
+                  image: productData.images?.[0],
+                })
+                openCart()
+                setMessages(prev => [...prev, {
+                  role: 'assistant',
+                  content: `¡Listo! Agregué ${productData.name} a tu carrito 🎉 ¿Necesitas algo más?`,
+                  isNew: true
+                }])
+                setIsTypingEffect(true)
+              }
+            })
+            .catch(() => {})
+          saveConversation('converted')
+          return
+        }
+
         setIsNavigating(true)
         setNavigationTarget({
           slug: data.redirect_to,
