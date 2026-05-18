@@ -93,33 +93,51 @@ export function useScrollDepthTracker(productSlug?: string) {
   }, [productSlug])
 }
 
-// ── Hook de exit intent ───────────────────────────────────────
+// ── Hook de exit intent (MEJORADO) ────────────────────────────
 export function useExitIntentTracker() {
   const fired = useRef(false)
+  const lastY = useRef(0)
+  const lastX = useRef(0)
 
   useEffect(() => {
+    // Rastrear el movimiento del mouse para detectar velocidad
+    const trackMouseMove = (e: MouseEvent) => {
+      lastY.current = e.clientY
+      lastX.current = e.clientX
+    }
+
     const handler = (e: MouseEvent) => {
-      if (e.clientY <= 5 && !fired.current) {
+      // Solo detectar si el cursor sale por la parte superior (y < 5)
+      // Y si el movimiento fue hacia arriba (velocidad positiva en Y)
+      if (e.clientY <= 5 && lastY.current > 20 && !fired.current) {
         fired.current = true
         trackEvent('exit_intent', { url: window.location.pathname })
       }
     }
+
+    window.addEventListener('mousemove', trackMouseMove, { passive: true })
     document.addEventListener('mouseleave', handler)
-    return () => document.removeEventListener('mouseleave', handler)
+    
+    return () => {
+      window.removeEventListener('mousemove', trackMouseMove)
+      document.removeEventListener('mouseleave', handler)
+    }
   }, [])
 }
 
-// ── Hook de idle detection ────────────────────────────────────
+// ── Hook de idle detection (MEJORADO) ──────────────────────────
 export function useIdleTracker(timeoutMs = 30_000) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fired = useRef(false)
+  const hasInteracted = useRef(false)
 
   useEffect(() => {
     const reset = () => {
       fired.current = false
+      hasInteracted.current = true
       if (timer.current) clearTimeout(timer.current)
       timer.current = setTimeout(() => {
-        if (!fired.current) {
+        if (!fired.current && hasInteracted.current) {
           fired.current = true
           trackEvent('idle_detected', {
             url: window.location.pathname,
