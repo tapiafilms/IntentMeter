@@ -1,16 +1,13 @@
 // DESPUÉS
 'use client'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
 import { useCartStore } from '@/lib/store/cart'
 
 export default function Navbar() {
-  const { itemCount, toggleCart } = useCartStore()
-  const [count, setCount] = useState(0)
-
-  useEffect(() => {
-    setCount(itemCount())
-  }, [itemCount])
+  const count = useCartStore(state => 
+    state.items.reduce((sum, i) => sum + i.qty, 0)
+  )
+  const { toggleCart } = useCartStore()
 
   return (
     <header

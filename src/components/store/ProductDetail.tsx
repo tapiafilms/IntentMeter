@@ -5,17 +5,19 @@ import type { Product, ProductVariant } from '@/lib/supabase/types'
 import { useCartStore } from '@/lib/store/cart'
 
 const imageTransitionStyles = `
-  @keyframes fadeInImage {
+  @keyframes slideInImage {
     from {
       opacity: 0;
+      transform: translateX(10px);
     }
     to {
       opacity: 1;
+      transform: translateX(0);
     }
   }
   
   .image-transition {
-    animation: fadeInImage 0.4s ease-in-out;
+    animation: slideInImage 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 `
 
