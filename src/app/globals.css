@@ -64,7 +64,7 @@ body {
 /* Animación de fade suave para videos */
 @keyframes videoFadeIn {
   from { opacity: 0; }
-  to   { opacity: 1; }
+  to   { opacity: 0.30; }
 }
 
 .animate-video-fade {
