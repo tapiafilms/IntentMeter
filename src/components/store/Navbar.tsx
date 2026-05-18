@@ -32,18 +32,10 @@ export default async function Navbar() {
           Tienda<span style={{ color: 'var(--color-accent)' }}>.</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8">
-          {rootItems.map(item => (
-            <Link
-              key={item.id}
-              href={item.url}
-              className="text-sm font-medium transition-opacity hover:opacity-60"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        import NavLinks from './NavLinks'
+
+// ...dentro del return, reemplaza el <nav>...</nav> por:
+<NavLinks items={rootItems} />
 
         <div className="flex items-center gap-4">
           <div
