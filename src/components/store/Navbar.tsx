@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createStaticClient } from '@/lib/supabase/server'
 import CartButton from './CartButton'
+import NavLinks from './NavLinks'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
 
@@ -32,10 +33,7 @@ export default async function Navbar() {
           Tienda<span style={{ color: 'var(--color-accent)' }}>.</span>
         </Link>
 
-        import NavLinks from './NavLinks'
-
-// ...dentro del return, reemplaza el <nav>...</nav> por:
-<NavLinks items={rootItems} />
+        <NavLinks items={rootItems} />
 
         <div className="flex items-center gap-4">
           <div
