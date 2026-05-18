@@ -20,7 +20,8 @@ export default async function HomePage() {
             loop
             muted
             playsInline
-            className="w-full h-full object-cover opacity-10 animate-video-fade"
+            className="w-full h-full object-cover animate-video-fade"
+            style={{ opacity: 0.30 }}
           >
             <source src="/video-fondo-tienda.mp4" type="video/mp4" />
           </video>
@@ -31,7 +32,7 @@ export default async function HomePage() {
           />
           {/* Overlay suave para integrar mejor el video con el fondo azul */}
           <div 
-            className="absolute inset-0 z-10" 
+            className="absolute inset-0 z-20" 
             style={{ background: 'linear-gradient(to bottom, rgba(26,26,46,0.5) 0%, transparent 100%)' }}
           />
         </div>
