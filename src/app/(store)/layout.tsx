@@ -4,6 +4,7 @@ import CartDrawer from '@/components/store/CartDrawer'
 import TrackingProvider from '@/components/store/TrackingProvider'
 import AIWidget from '@/components/store/AIWidget'
 import DemoPanel from '@/components/store/DemoPanel'
+import PageTransition from '@/components/store/PageTransition'
 
 export default function StoreLayout({
   children,
@@ -15,7 +16,9 @@ export default function StoreLayout({
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1">
-          {children}
+          <PageTransition>
+            {children}
+          </PageTransition>
         </main>
         <Footer />
         <CartDrawer />
