@@ -272,8 +272,8 @@ function ProductCard({ product, selected, visible, index, onClick }: {
   index: number
   onClick: () => void
 }) {
-  const cardRef = useRef<HTMLDivElement>(null)
-  useHoverParticles(cardRef)
+  const cardRef = useRef<HTMLButtonElement>(null)
+  useHoverParticles(cardRef as React.RefObject<HTMLDivElement>)
 
   return (
     <button
