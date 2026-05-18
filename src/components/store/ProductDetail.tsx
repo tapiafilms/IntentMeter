@@ -4,6 +4,21 @@ import Image from 'next/image'
 import type { Product, ProductVariant } from '@/lib/supabase/types'
 import { useCartStore } from '@/lib/store/cart'
 
+const imageTransitionStyles = `
+  @keyframes fadeInImage {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  .image-transition {
+    animation: fadeInImage 0.4s ease-in-out;
+  }
+`
+
 interface Props {
   product: Product
 }
@@ -97,7 +112,7 @@ export default function ProductDetail({ product }: Props) {
 
         {/* Galería */}
         <div className="space-y-3">
-          {/* Imagen principal */}
+        {/* Imagen principal */}
           <div
             className="relative overflow-hidden"
             style={{
@@ -106,15 +121,18 @@ export default function ProductDetail({ product }: Props) {
               aspectRatio: '3/4',
             }}
           >
+            <style>{imageTransitionStyles}</style>
             {product.images.length > 0 ? (
               <Image
+                key={selectedImage}
                 src={product.images[selectedImage]}
                 alt={product.name}
                 fill
-                className="object-cover"
+                className="object-cover image-transition"
                 sizes="(max-width: 768px) 100vw, 50vw"
                 priority
-              />
+              >
+              </Image>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="text-6xl opacity-10">◇</span>
