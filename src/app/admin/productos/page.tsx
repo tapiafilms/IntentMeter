@@ -254,20 +254,31 @@ export default function AdminPage() {
     loadProducts()
   }
 
-  function loadMenu() {
-    const saved = localStorage.getItem('admin_menu')
-    setMenuItems(saved ? JSON.parse(saved) : [
-      { label: 'Inicio', url: '/', parent: '' },
-      { label: 'Productos', url: '/productos', parent: '' },
-      { label: 'Ropa', url: '/productos?categoria=Ropa', parent: 'Productos' },
-      { label: 'Accesorios', url: '/productos?categoria=Accesorios', parent: 'Productos' },
-    ])
-  }
+  async function loadMenu() {
+  const { data } = await supabase
+    .from('nav_items')
+    .select('*')
+    .eq('tenant_id', process.env.NEXT_PUBLIC_TENANT_ID!)
+    .order('sort_order', { ascending: true })
+  setMenuItems((data || []) as MenuItem[])
+}
 
-  function saveMenu() {
-    localStorage.setItem('admin_menu', JSON.stringify(menuItems))
-    show('Menú guardado ✓', 'success')
+async function saveMenu() {
+  const tenantId = process.env.NEXT_PUBLIC_TENANT_ID!
+  await supabase.from('nav_items').delete().eq('tenant_id', tenantId)
+  if (menuItems.length > 0) {
+    const { error } = await supabase.from('nav_items').insert(
+      menuItems.map((item, i) => ({ ...item, tenant_id: tenantId, sort_order: i }))
+    )
+    if (error) { show('Error guardando menú: ' + error.message, 'error'); return }
   }
+  show('Menú publicado ✓', 'success')
+  fetch('/api/revalidate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: null }),
+  }).catch(() => {})
+}
 
   const s = {
     shell: { display: 'flex', height: '100vh', overflow: 'hidden', background: '#0e0e0e', fontFamily: 'DM Sans, sans-serif', color: '#f0ede8', fontSize: 13 } as React.CSSProperties,

@@ -1,13 +1,22 @@
-// DESPUÉS
-'use client'
 import Link from 'next/link'
-import { useCartStore } from '@/lib/store/cart'
+import { createStaticClient } from '@/lib/supabase/server'
+import CartButton from './CartButton'
 
-export default function Navbar() {
-  const count = useCartStore(state => 
-    state.items.reduce((sum, i) => sum + i.qty, 0)
-  )
-  const { toggleCart } = useCartStore()
+const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
+
+async function getNavItems() {
+  const db = createStaticClient()
+  const { data } = await db
+    .from('nav_items')
+    .select('*')
+    .eq('tenant_id', TENANT_ID)
+    .order('sort_order', { ascending: true })
+  return (data || []) as { id: string; label: string; url: string; parent: string }[]
+}
+
+export default async function Navbar() {
+  const navItems = await getNavItems()
+  const rootItems = navItems.filter(i => !i.parent)
 
   return (
     <header
@@ -19,21 +28,15 @@ export default function Navbar() {
       }}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
         <Link href="/" className="font-display text-xl font-bold tracking-tight">
           Tienda<span style={{ color: 'var(--color-accent)' }}>.</span>
         </Link>
 
-        {/* Nav */}
         <nav className="hidden md:flex items-center gap-8">
-          {[
-            { href: '/productos', label: 'Productos' },
-            { href: '/productos?categoria=Ropa', label: 'Ropa' },
-            { href: '/productos?categoria=Accesorios', label: 'Accesorios' },
-          ].map(item => (
+          {rootItems.map(item => (
             <Link
-              key={item.href}
-              href={item.href}
+              key={item.id}
+              href={item.url}
               className="text-sm font-medium transition-opacity hover:opacity-60"
               style={{ color: 'var(--color-text-secondary)' }}
             >
@@ -42,9 +45,7 @@ export default function Navbar() {
           ))}
         </nav>
 
-        {/* Acciones */}
         <div className="flex items-center gap-4">
-          {/* Badge IA */}
           <div
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold select-none"
             style={{
@@ -59,7 +60,7 @@ export default function Navbar() {
           </div>
 
           <Link
-            href="https://intent-meter.vercel.app/admin/productos"
+            href="/admin/productos"
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-70"
             style={{
               border: '1px solid var(--color-border)',
@@ -69,24 +70,7 @@ export default function Navbar() {
             Admin
           </Link>
 
-          <button
-            onClick={toggleCart}
-            className="relative flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-70"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <path d="M16 10a4 4 0 01-8 0"/>
-            </svg>
-            {count > 0 && (
-              <span
-                className="absolute -top-2 -right-2 w-4 h-4 rounded-full text-white text-xs flex items-center justify-center font-bold"
-                style={{ background: 'var(--color-accent)', color: 'var(--color-brand)' }}
-              >
-                {count}
-              </span>
-            )}
-          </button>
+          <CartButton />
         </div>
       </div>
     </header>
