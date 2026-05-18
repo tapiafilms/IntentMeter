@@ -182,46 +182,67 @@ export default function AdminPage() {
   }
 
   async function saveProduct() {
-    if (!editProduct.name) { show('El nombre es obligatorio', 'error'); return }
-    setSaving(true)
-    const payload = {
-      tenant_id: process.env.NEXT_PUBLIC_TENANT_ID,
-      name: editProduct.name,
-      slug: editProduct.slug || toSlug(editProduct.name),
-      price: Number(editProduct.price) || 0,
-      description: editProduct.description || '',
-      category: editProduct.category || '',
-      images: editImages,
-      variants: editVariants,
-      active: editActive,
-    }
-    let err, savedId: string | undefined
-    if (editProduct.id) {
-      ({ error: err } = await supabase.from('products').update(payload).eq('id', editProduct.id))
-      savedId = editProduct.id
-    } else {
-      const { data: inserted, error: insertErr } = await supabase.from('products').insert(payload).select('id').single()
-      err = insertErr
-      savedId = inserted?.id
-    }
-    setSaving(false)
-    if (err) { show('Error: ' + err.message, 'error'); return }
-    show(editProduct.id ? 'Producto actualizado ✓' : 'Producto creado ✓', 'success')
-    setModal(false)
-    loadProducts()
-
-    // Generar embedding en segundo plano (no bloquea el flujo)
-    if (savedId && (payload.name || payload.description)) {
-      const text = [payload.name, payload.description, payload.category].filter(Boolean).join(' — ')
-      fetch('/api/embeddings/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: savedId, text }),
-      }).then(r => r.json()).then(r => {
-        if (r.ok) show(`Embedding generado ✓ (${r.dimensions} dimensiones)`, 'success')
-      }).catch(() => {}) // silencioso si falla
-    }
+  if (!editProduct.name) { show('El nombre es obligatorio', 'error'); return }
+  setSaving(true)
+  const payload = {
+    tenant_id: process.env.NEXT_PUBLIC_TENANT_ID,
+    name: editProduct.name,
+    slug: editProduct.slug || toSlug(editProduct.name),
+    price: Number(editProduct.price) || 0,
+    description: editProduct.description || '',
+    category: editProduct.category || '',
+    images: editImages,
+    variants: editVariants,
+    active: editActive,
   }
+
+  let err, savedId: string | undefined
+
+  if (editProduct.id) {
+    // FIX 1: agrega .eq('tenant_id', ...) para mayor seguridad
+    ({ error: err } = await supabase
+      .from('products')
+      .update(payload)
+      .eq('id', editProduct.id)
+      .eq('tenant_id', process.env.NEXT_PUBLIC_TENANT_ID!)
+    )
+    savedId = editProduct.id
+  } else {
+    const { data: inserted, error: insertErr } = await supabase
+      .from('products')
+      .insert(payload)
+      .select('id')
+      .single()
+    err = insertErr
+    savedId = inserted?.id
+  }
+
+  setSaving(false)
+  if (err) { show('Error: ' + err.message, 'error'); return }
+
+  show(editProduct.id ? 'Producto actualizado ✓' : 'Producto creado ✓', 'success')
+  setModal(false)
+  loadProducts()
+
+  // FIX 2: revalidar caché de Next.js para que los cambios sean visibles
+  fetch('/api/revalidate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: payload.slug }),
+  }).catch(() => {}) // silencioso si falla
+
+  // Embedding en segundo plano (sin cambios)
+  if (savedId && (payload.name || payload.description)) {
+    const text = [payload.name, payload.description, payload.category].filter(Boolean).join(' — ')
+    fetch('/api/embeddings/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId: savedId, text }),
+    }).then(r => r.json()).then(r => {
+      if (r.ok) show(`Embedding generado ✓ (${r.dimensions} dimensiones)`, 'success')
+    }).catch(() => {})
+  }
+}
 
   async function deleteProduct() {
     if (!editProduct.id) return
