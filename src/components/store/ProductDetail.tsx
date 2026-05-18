@@ -52,11 +52,7 @@ export default function ProductDetail({ product }: Props) {
     setSelectedImage(index)
     // Mostrar comentario de Sofía solo al ver una foto que no es la primera
     if (index > 0 && !sofiaVisible) {
-      // Mostrar fallback inmediato mientras carga la IA
-      setSofiaComment(getFallbackComment(product.category))
-      setSofiaVisible(true)
-
-      // Luego reemplazar con comentario generado por IA
+      // Esperar el comentario de la IA antes de mostrar la franja
       try {
         const res = await fetch('/api/sofia-comment', {
           method: 'POST',
@@ -68,11 +64,13 @@ export default function ProductDetail({ product }: Props) {
           }),
         })
         const data = await res.json()
-        if (data.comment) setSofiaComment(data.comment)
+        setSofiaComment(data.comment || getFallbackComment(product.category))
       } catch {
-        // Mantiene el fallback si falla la API
+        // Usar fallback solo si falla la API
+        setSofiaComment(getFallbackComment(product.category))
       }
 
+      setSofiaVisible(true)
       setTimeout(() => setSofiaVisible(false), 6000)
     }
   }
