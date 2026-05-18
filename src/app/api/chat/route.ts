@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       '- Si el score es mayor a 60, se mas proactiva en cerrar la venta',
       '- Termina siempre con una pregunta o llamada a la accion',
       '- Si hay COMPARATIVA ACTIVA y el usuario elige una opcion, responde SIEMPRE con redirect_to al slug correcto, NUNCA vuelvas a usar compare_products',
+      '- Si el usuario confirma que quiere agregar al carrito y ya estas en el producto correcto, responde con ask_add_to_cart: true y redirect_to con el slug del producto actual',
       '',
       'FORMATO DE RESPUESTA - responde SIEMPRE con JSON puro sin markdown:',
       'Ejemplo normal: {"message": "tu respuesta", "redirect_to": null, "ask_add_to_cart": false, "compare_products": null}',

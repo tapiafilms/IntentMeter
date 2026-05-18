@@ -476,6 +476,24 @@ export default function AIWidget() {
               </div>
             </div>
 
+            {/* Botón de confirmación para agregar al carrito */}
+            {pendingProduct && !isTypingEffect && !isLoading && (
+              <div className="flex gap-2 px-1">
+                <button
+                  onClick={handleAddToCart}
+                  className="flex-1 py-2 rounded-full text-xs font-bold bg-cyan-500 text-white hover:bg-cyan-400 transition-all"
+                >
+                  🛍️ Sí, agrégalo al carrito
+                </button>
+                <button
+                  onClick={() => setPendingProduct(null)}
+                  className="py-2 px-3 rounded-full text-xs text-white/50 hover:text-white/80 transition-all"
+                >
+                  No, gracias
+                </button>
+              </div>
+            )}
+
             {/* Input */}
             <div className="relative flex items-center border border-white/20 rounded-full px-3 md:px-5 py-1.5 md:py-2 bg-transparent hover:border-white/40 transition-all focus-within:border-white/50">
               <input
