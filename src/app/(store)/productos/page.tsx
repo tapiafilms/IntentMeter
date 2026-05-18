@@ -60,12 +60,8 @@ export default async function ProductosPage({ searchParams }: Props) {
       {/* Grid de productos */}
       {products.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {products.map((product, i) => (
-            <div
-              key={product.id}
-              className="animate-fade-up"
-              style={{ animationDelay: `${i * 0.05}s`, opacity: 0 }}
-            >
+          {products.map((product) => (
+            <div key={product.id}>
               <ProductCard product={product} />
             </div>
           ))}
