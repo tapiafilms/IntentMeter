@@ -188,3 +188,15 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: rgba(34, 211, 238, 0.5);
 }
+/* Agregar en globals.css */
+@keyframes gradientColor {
+  0%   { background: #ff00cc; }
+  25%  { background: #00ffcc; }
+  50%  { background: #ff3300; }
+  75%  { background: #00ccff; }
+  100% { background: #ff00cc; }
+}
+
+.animate-gradient-color {
+  animation: gradientColor 20s ease-in-out infinite;
+}

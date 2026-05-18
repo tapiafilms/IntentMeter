@@ -24,6 +24,11 @@ export default async function HomePage() {
           >
             <source src="/video-fondo-tienda.mp4" type="video/mp4" />
           </video>
+          {/* Overlay gradiente animado */}
+          <div
+            className="absolute inset-0 z-10 animate-gradient-color"
+            style={{ mixBlendMode: 'color', opacity: 0.55 }}
+          />
           {/* Overlay suave para integrar mejor el video con el fondo azul */}
           <div 
             className="absolute inset-0 z-10" 
