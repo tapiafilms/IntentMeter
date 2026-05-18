@@ -28,7 +28,7 @@ function formatPrice(price: number) {
 }
 
 // ─── Canvas de partículas hover (vanilla Canvas, sin Phaser) ─────────────────
-function useHoverParticles(cardRef: React.RefObject<HTMLDivElement | null>) {
+function useHoverParticles(cardRef: React.RefObject<HTMLElement | null>) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const animRef = useRef<number>(0)
   const particlesRef = useRef<any[]>([])
@@ -273,7 +273,7 @@ function ProductCard({ product, selected, visible, index, onClick }: {
   onClick: () => void
 }) {
   const cardRef = useRef<HTMLButtonElement>(null)
-  useHoverParticles(cardRef as React.RefObject<HTMLDivElement>)
+  useHoverParticles(cardRef)
 
   return (
     <button
