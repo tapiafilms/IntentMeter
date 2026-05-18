@@ -268,7 +268,12 @@ async function saveMenu() {
   await supabase.from('nav_items').delete().eq('tenant_id', tenantId)
   if (menuItems.length > 0) {
     const { error } = await supabase.from('nav_items').insert(
-      menuItems.map((item, i) => ({ ...item, tenant_id: tenantId, sort_order: i }))
+      menuItems.map((item, i) => ({
+    tenant_id: tenantId,
+    label: item.label,
+    url: item.url,
+    parent: item.parent,
+    sort_order: i, }))
     )
     if (error) { show('Error guardando menú: ' + error.message, 'error'); return }
   }
