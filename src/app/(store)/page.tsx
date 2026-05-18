@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import HeroParallax from '@/components/store/HeroParallax'
 import { getProducts } from '@/lib/supabase/queries'
 import ProductCard from '@/components/store/ProductCard'
 
@@ -15,16 +16,7 @@ export default async function HomePage() {
       >
         {/* Video Background con Opacidad Reducida */}
         <div className="absolute inset-0 z-0">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover animate-video-fade"
-            style={{ opacity: 0.30 }}
-          >
-            <source src="/video-fondo-tienda.mp4" type="video/mp4" />
-          </video>
+          <HeroParallax />
           {/* Overlay gradiente animado */}
           <div
             className="absolute inset-0 z-10 animate-gradient-color"

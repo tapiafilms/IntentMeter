@@ -58,6 +58,17 @@ export default function Navbar() {
             <span>Asistida con IA — aprovéchala</span>
           </div>
 
+          <Link
+            href="https://intent-meter.vercel.app/admin/productos"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-70"
+            style={{
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            Admin
+          </Link>
+
           <button
             onClick={toggleCart}
             className="relative flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-70"
