@@ -41,7 +41,7 @@ export default function ParallaxHero({ children }: ParallaxHeroProps) {
   const parallaxOffset = scrollY * 0.5
 
   return (
-    <>
+    <div className="relative">
       <style>{parallaxStyles}</style>
       <section
         ref={containerRef}
@@ -54,7 +54,7 @@ export default function ParallaxHero({ children }: ParallaxHeroProps) {
           className="absolute inset-0 z-0 parallax-video-container"
           style={{
             transform: `translateY(${parallaxOffset}px)`,
-            transition: 'transform 0.1s ease-out',
+            willChange: 'transform',
           }}
         >
           <video
@@ -114,7 +114,10 @@ export default function ParallaxHero({ children }: ParallaxHeroProps) {
         </div>
       </section>
 
-      {children}
-    </>
+      {/* El contenido de abajo (children) debe renderizarse fuera del Hero */}
+      <main className="relative z-30" style={{ background: 'var(--color-surface)' }}>
+        {children}
+      </main>
+    </div>
   )
 }
