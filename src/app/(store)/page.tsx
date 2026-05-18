@@ -1,14 +1,70 @@
 import Link from 'next/link'
 import { getProducts } from '@/lib/supabase/queries'
 import ProductCard from '@/components/store/ProductCard'
-import ParallaxHero from '@/components/store/ParallaxHero'
 
 export default async function HomePage() {
   const products = await getProducts()
   const featured = products.slice(0, 4)
 
   return (
-    <ParallaxHero>
+    <>
+      {/* Hero con Fondo Azul y Video Sutil (30% Opacidad) */}
+      <section 
+        className="relative h-[66vh] overflow-hidden flex items-center"
+        style={{ backgroundColor: 'var(--color-brand)' }}
+      >
+        {/* Video Background con Opacidad Reducida */}
+        <div className="absolute inset-0 z-0">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover opacity-10 animate-video-fade"
+          >
+            <source src="/video-fondo-tienda.mp4" type="video/mp4" />
+          </video>
+          {/* Overlay suave para integrar mejor el video con el fondo azul */}
+          <div 
+            className="absolute inset-0 z-10" 
+            style={{ background: 'linear-gradient(to bottom, rgba(26,26,46,0.5) 0%, transparent 100%)' }}
+          />
+        </div>
+
+        <div className="relative z-20 max-w-6xl mx-auto px-6 w-full">
+          <div className="max-w-2xl animate-fade-up">
+            <p className="text-sm font-medium tracking-widest mb-6"
+              style={{ color: 'var(--color-accent)', letterSpacing: '0.2em' }}>
+              NUEVA COLECCIÓN
+            </p>
+            <h1 className="font-display text-5xl md:text-7xl font-bold text-white leading-tight mb-6">
+              Piezas que<br />
+              <span style={{ color: 'var(--color-accent)' }}>duran.</span>
+            </h1>
+            <p className="text-lg mb-10" style={{ color: 'rgba(255,255,255,0.95)' }}>
+              Cada prenda seleccionada con cuidado. Diseño atemporal para el día a día.
+            </p>
+            <div className="flex gap-4 flex-wrap">
+              <Link
+                href="/productos"
+                className="inline-flex items-center gap-2 px-8 py-4 rounded-full font-medium text-sm transition-all hover:scale-105"
+                style={{ background: 'var(--color-accent)', color: 'var(--color-brand)' }}
+              >
+                Ver colección
+                <span>→</span>
+              </Link>
+              <Link
+                href="/productos"
+                className="inline-flex items-center gap-2 px-8 py-4 rounded-full font-medium text-sm border transition-all"
+                style={{ borderColor: 'rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.85)' }}
+              >
+                Explorar
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Productos destacados */}
       {featured.length > 0 && (
         <section className="max-w-6xl mx-auto px-6 py-20">
@@ -59,6 +115,6 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
-    </ParallaxHero>
+    </>
   )
 }
