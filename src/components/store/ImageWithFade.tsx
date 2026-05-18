@@ -16,9 +16,11 @@ const loadingStyles = `
   @keyframes fadeInImage {
     from {
       opacity: 0;
+      transform: translateX(10px);
     }
     to {
       opacity: 1;
+      transform: translateX(0);
     }
   }
   

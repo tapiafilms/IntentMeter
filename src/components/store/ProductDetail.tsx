@@ -5,22 +5,7 @@ import ImageWithFade from './ImageWithFade'
 import type { Product, ProductVariant } from '@/lib/supabase/types'
 import { useCartStore } from '@/lib/store/cart'
 
-const imageTransitionStyles = `
-  @keyframes slideInImage {
-    from {
-      opacity: 0;
-      transform: translateX(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-  
-  .image-transition {
-    animation: slideInImage 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-`
+const imageTransitionStyles = ``
 
 interface Props {
   product: Product
@@ -131,7 +116,7 @@ export default function ProductDetail({ product }: Props) {
                 src={product.images[selectedImage]}
                 alt={product.name}
                 fill
-                className="object-cover image-transition"
+                className="object-cover"
                 sizes="(max-width: 768px) 100vw, 50vw"
                 priority
               />
