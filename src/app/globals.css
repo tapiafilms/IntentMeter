@@ -57,8 +57,18 @@ body {
   to   { opacity: 1; }
 }
 
-.animate-fade-up {
-  animation: fadeUp 0.5s ease forwards;
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+/* Animación de fade suave para videos */
+@keyframes videoFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-video-fade {
+  animation: videoFadeIn 1.2s ease-in forwards;
 }
 
 .animate-fade-in {

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Image from 'next/image'
+import ImageWithFade from './ImageWithFade'
 import type { Product, ProductVariant } from '@/lib/supabase/types'
 import { useCartStore } from '@/lib/store/cart'
 
@@ -125,7 +126,7 @@ export default function ProductDetail({ product }: Props) {
           >
             <style>{imageTransitionStyles}</style>
             {product.images.length > 0 ? (
-              <Image
+              <ImageWithFade
                 key={selectedImage}
                 src={product.images[selectedImage]}
                 alt={product.name}
@@ -133,8 +134,7 @@ export default function ProductDetail({ product }: Props) {
                 className="object-cover image-transition"
                 sizes="(max-width: 768px) 100vw, 50vw"
                 priority
-              >
-              </Image>
+              />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="text-6xl opacity-10">◇</span>
@@ -200,7 +200,7 @@ export default function ProductDetail({ product }: Props) {
                     background: 'var(--color-surface-2)',
                   }}
                 >
-                  <Image src={img} alt="" fill className="object-cover" sizes="72px" />
+                  <ImageWithFade src={img} alt="" fill className="object-cover" sizes="72px" />
                 </button>
               ))}
             </div>
