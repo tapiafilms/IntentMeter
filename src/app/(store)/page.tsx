@@ -30,6 +30,19 @@ export default async function HomePage() {
             className="absolute inset-0 z-10 animate-gradient-color"
             style={{ mixBlendMode: 'color', opacity: 0.55 }}
           />
+          {/* Dot grid overlay */}
+          <svg
+            className="absolute inset-0 w-full h-full"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ zIndex: 11, opacity: 0.54 }}
+          >
+            <defs>
+              <pattern id="dotgrid" x="0" y="0" width="5" height="5" patternUnits="userSpaceOnUse">
+                <circle cx="0.5" cy="0.5" r="0.5" fill="black" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#dotgrid)" />
+          </svg>
           {/* Overlay suave para integrar mejor el video con el fondo azul */}
           <div 
             className="absolute inset-0 z-20" 
