@@ -18,11 +18,15 @@ function getVisitorId(): string {
   return id
 }
 
-// ── Session ID en memoria (dura mientras el tab esté abierto) ─
-let _sessionId: string | null = null
+
 function getSessionId(): string {
-  if (!_sessionId) _sessionId = crypto.randomUUID()
-  return _sessionId
+  if (typeof window === 'undefined') return 'ssr-placeholder'
+  let id = localStorage.getItem('ti_session_id')
+  if (!id) {
+    id = crypto.randomUUID()
+    localStorage.setItem('ti_session_id', id)
+  }
+  return id
 }
 
 // ── Función base de tracking ──────────────────────────────────
