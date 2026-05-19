@@ -190,11 +190,9 @@ body {
 }
 /* Agregar en globals.css */
 @keyframes gradientColor {
-  0%   { background: #ff00cc; }
-  25%  { background: #00ffcc; }
-  50%  { background: #ff3300; }
-  75%  { background: #00ccff; }
-  100% { background: #ff00cc; }
+  0%   { background: #0a0a2e; }
+  50%  { background: #38bdf8; }
+  100% { background: #0a0a2e; }
 }
 
 .animate-gradient-color {

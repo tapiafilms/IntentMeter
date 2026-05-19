@@ -50,7 +50,7 @@ export default async function Navbar() {
           </div>
 
           <Link
-            href="/admin/productos"
+            href="/admin"
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-70"
             style={{
               border: '1px solid var(--color-border)',
