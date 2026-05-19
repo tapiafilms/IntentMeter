@@ -48,6 +48,7 @@ export async function trackEvent(
 
     // Emitir evento al widget con el score actualizado
     const data = await res.json()
+    if (data.session_id) localStorage.setItem('ti_session_id', data.session_id)
     if (data.intent_score !== undefined) {
       window.dispatchEvent(new CustomEvent('ti:track', {
         detail: {
