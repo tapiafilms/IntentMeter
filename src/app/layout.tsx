@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Playfair_Display } from 'next/font/google'
 import './globals.css'
+import TrackingProvider from '@/components/TrackingProvider'
 
 const geist = Geist({
   subsets: ['latin'],
@@ -25,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${geist.variable} ${playfair.variable} antialiased`}>
+        <TrackingProvider />
         {children}
       </body>
     </html>

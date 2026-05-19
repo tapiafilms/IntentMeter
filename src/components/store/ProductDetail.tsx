@@ -4,6 +4,7 @@ import Image from 'next/image'
 import ImageWithFade from './ImageWithFade'
 import type { Product, ProductVariant } from '@/lib/supabase/types'
 import { useCartStore } from '@/lib/store/cart'
+import { useProductViewTracker, trackEvent } from '@/lib/tracker'
 
 const imageTransitionStyles = ``
 
@@ -19,7 +20,6 @@ function formatPrice(price: number) {
   }).format(price)
 }
 
-// Comentarios de respaldo por si falla la API
 const FALLBACK_COMMENTS: Record<string, string> = {
   vestidos: 'La caída de este tejido es increíble, ¿lo notas? ✨',
   abrigos: 'La estructura de este abrigo es perfecta, ¿no te parece? 🤍',
@@ -44,15 +44,16 @@ export default function ProductDetail({ product }: Props) {
   const [sofiaVisible, setSofiaVisible] = useState(false)
   const { addItem } = useCartStore()
 
+  // ── Tracking de vista / revisita ──────────────────────────
+  useProductViewTracker(product.slug)
+
   const hasVariants = product.variants.length > 0
   const inStock = selectedVariant ? selectedVariant.stock > 0 : true
   const isLowStock = selectedVariant && selectedVariant.stock > 0 && selectedVariant.stock <= 3
 
   async function handleImageSelect(index: number) {
     setSelectedImage(index)
-    // Mostrar comentario de Sofía solo al ver una foto que no es la primera
     if (index > 0 && !sofiaVisible) {
-      // Esperar el comentario de la IA antes de mostrar la franja
       try {
         const res = await fetch('/api/sofia-comment', {
           method: 'POST',
@@ -66,7 +67,6 @@ export default function ProductDetail({ product }: Props) {
         const data = await res.json()
         setSofiaComment(data.comment || getFallbackComment(product.category))
       } catch {
-        // Usar fallback solo si falla la API
         setSofiaComment(getFallbackComment(product.category))
       }
 
@@ -87,6 +87,17 @@ export default function ProductDetail({ product }: Props) {
     })
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
+
+    // ── Tracking real a Supabase ──────────────────────────
+    trackEvent('add_to_cart', {
+      slug: product.slug,
+      product_id: product.id,
+      product_name: product.name,
+      variant: selectedVariant?.name ?? 'Único',
+      price: product.price + (selectedVariant?.price_modifier ?? 0),
+    })
+
+    // CustomEvent para el widget de Sofía
     window.dispatchEvent(new CustomEvent('ti:add_to_cart', {
       detail: { product_id: product.id, variant: selectedVariant?.name }
     }))
@@ -98,7 +109,6 @@ export default function ProductDetail({ product }: Props) {
 
         {/* Galería */}
         <div className="space-y-3">
-        {/* Imagen principal */}
           <div
             className="relative overflow-hidden"
             style={{
@@ -124,7 +134,7 @@ export default function ProductDetail({ product }: Props) {
               </div>
             )}
 
-            {/* ── Franja comentario de Sofía ── */}
+            {/* Franja comentario de Sofía */}
             <div
               className="absolute bottom-0 left-0 right-0 flex items-center gap-3 px-4 py-3"
               style={{
@@ -137,7 +147,6 @@ export default function ProductDetail({ product }: Props) {
                 padding: '20px 16px 24px',
               }}
             >
-              {/* Mini avatar */}
               <div className="relative flex-shrink-0 w-8 h-8 rounded-full overflow-hidden border border-white/20 bg-[#1a1a2e]">
                 <video
                   src="/avatar1.mp4"
@@ -149,18 +158,16 @@ export default function ProductDetail({ product }: Props) {
                   style={{ mixBlendMode: 'screen' }}
                 />
               </div>
-              {/* Texto */}
               <p className="text-white text-sm leading-snug flex-1" style={{ fontStyle: 'italic' }}>
                 "{sofiaComment}"
               </p>
-              {/* Cerrar */}
               <button
                 onClick={() => setSofiaVisible(false)}
                 className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all hover:bg-white/20"
                 style={{ background: 'rgba(255,255,255,0.1)' }}
               >
                 <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  <line x1="18" y1="6" x2="18" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
               </button>
             </div>
