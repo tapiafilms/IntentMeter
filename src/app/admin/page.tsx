@@ -30,6 +30,28 @@ async function getDashboardData() {
     .eq('tenant_id', TENANT_ID)
     .gte('created_at', since7days)
 
+  const { data: recentConversations } = await db
+    .from('conversations')
+    .select('id, session_id, messages, objections, outcome, created_at')
+    .eq('tenant_id', TENANT_ID)
+    .gte('created_at', since7days)
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  const { data: scrollEvents } = await db
+    .from('session_events')
+    .select('payload, session_id')
+    .eq('tenant_id', TENANT_ID)
+    .eq('type', 'scroll_depth')
+    .gte('created_at', since7days)
+
+  const { data: idleEvents } = await db
+    .from('session_events')
+    .select('payload, session_id')
+    .eq('tenant_id', TENANT_ID)
+    .eq('type', 'idle_detected')
+    .gte('created_at', since7days)
+
   const { data: weeklyReport } = await db
     .from('weekly_reports')
     .select('*')
@@ -42,6 +64,9 @@ async function getDashboardData() {
     sessions: sessions ?? [],
     events: events ?? [],
     conversations: conversations ?? [],
+    recentConversations: recentConversations ?? [],
+    scrollEvents: scrollEvents ?? [],
+    idleEvents: idleEvents ?? [],
     weeklyReport: weeklyReport ?? null,
   }
 }
@@ -51,6 +76,9 @@ export default async function AdminPage() {
   const sessions = data.sessions as Session[]
   const events = data.events as SessionEvent[]
   const conversations = data.conversations as Conversation[]
+  const recentConversations = data.recentConversations as any[]
+  const scrollEvents = data.scrollEvents as any[]
+  const idleEvents = data.idleEvents as any[]
   const weeklyReport = data.weeklyReport as WeeklyReport | null
 
   const totalSessions = sessions.length
@@ -79,7 +107,7 @@ export default async function AdminPage() {
   const exitEvents = events.filter(e => e.type === 'exit_intent').length
   const recentSessions = sessions.slice(0, 8)
 
-  // Objections / preguntas frecuentes a Sofía
+  // Objections
   const objectionCounts: Record<string, number> = {}
   conversations.forEach(c => {
     const conv = c as any
@@ -91,7 +119,7 @@ export default async function AdminPage() {
     .sort(([, a], [, b]) => b - a)
     .slice(0, 6)
 
-  // Productos con más exit intent
+  // Exit intent por producto
   const exitByProduct: Record<string, number> = {}
   events.filter(e => e.type === 'exit_intent').forEach(e => {
     const slug = (e.payload as any)?.slug ?? (e.payload as any)?.currentProduct ?? 'inicio'
@@ -101,28 +129,37 @@ export default async function AdminPage() {
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5)
 
-  // Productos más comparados (desde session_events tipo compare si existe, o desde conversations)
-  const compareCounts: Record<string, number> = {}
-  conversations.forEach(c => {
-    const conv = c as any
-    // Buscar mensajes donde la IA mostró compare_products
-    conv.messages?.forEach((m: any) => {
-      if (m.role === 'assistant' && m.content?.includes('compare')) {
-        // fallback: contar por product_id
-      }
-    })
-    if (conv.product_id) {
-      compareCounts[conv.product_id] = (compareCounts[conv.product_id] || 0) + 1
-    }
-  })
-  events.filter(e => e.type === 'product_view').forEach(e => {
-    const slug = (e.payload as any)?.slug
-    if (slug) compareCounts[slug] = (compareCounts[slug] || 0) + 1
-  })
-
-  // Tasa de conversión asistida por Sofía
+  // Sofía
   const sofiaConversations = conversations.length
   const sofiaConverted = conversations.filter(c => (c as any).outcome === 'converted').length
+  const sofiaConversionRate = sofiaConversations > 0
+    ? ((sofiaConverted / sofiaConversations) * 100).toFixed(0)
+    : '0'
+
+  // Scroll depth por producto
+  const scrollByProduct: Record<string, number[]> = {}
+  scrollEvents.forEach(e => {
+    const slug = (e.payload as any)?.slug ?? 'unknown'
+    if (!scrollByProduct[slug]) scrollByProduct[slug] = []
+    scrollByProduct[slug].push((e.payload as any)?.depth ?? 0)
+  })
+  const avgScrollByProduct = Object.entries(scrollByProduct)
+    .map(([slug, depths]) => ({
+      slug,
+      avg: Math.round(depths.reduce((a, b) => a + b, 0) / depths.length)
+    }))
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 5)
+
+  // Idle por página
+  const idleByPage: Record<string, number> = {}
+  idleEvents.forEach(e => {
+    const url = (e.payload as any)?.url ?? 'unknown'
+    idleByPage[url] = (idleByPage[url] || 0) + 1
+  })
+  const topIdlePages = Object.entries(idleByPage)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
 
   const INTENT_COLORS: Record<string, string> = {
     curious: '#94a3b8', undecided: '#f59e0b', comparator: '#3b82f6',
@@ -151,6 +188,8 @@ export default async function AdminPage() {
       </div>
 
       <div className="px-8 py-8 max-w-7xl mx-auto">
+
+        {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
             { label: 'Sesiones totales', value: totalSessions, sub: 'últimos 7 días', color: '#e2b96f' },
@@ -166,6 +205,7 @@ export default async function AdminPage() {
           ))}
         </div>
 
+        {/* Intención + Productos más vistos */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <h2 className="text-sm font-semibold mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>Distribución de intención</h2>
@@ -210,10 +250,12 @@ export default async function AdminPage() {
             <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>conversaciones esta semana</p>
             <div className="h-px mb-4" style={{ background: 'rgba(226,185,111,0.15)' }} />
             <p className="text-3xl font-bold mb-1" style={{ color: '#22c55e' }}>{sofiaConverted}</p>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>conversiones asistidas por IA</p>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>conversiones asistidas por IA</p>
+            <div className="h-px mb-4" style={{ background: 'rgba(226,185,111,0.15)' }} />
+            <p className="text-3xl font-bold mb-1" style={{ color: '#3b82f6' }}>{sofiaConversionRate}%</p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>tasa de conversión IA</p>
           </div>
 
-          {/* Preguntas / objeciones frecuentes */}
           <div className="rounded-2xl p-6 md:col-span-2" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Lo que más preguntan</h2>
             <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Objeciones y dudas capturadas por Sofía</p>
@@ -233,7 +275,7 @@ export default async function AdminPage() {
           </div>
         </div>
 
-        {/* Productos: vistos vs abandonados */}
+        {/* Abandonos + Reporte semanal */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Productos con más abandonos</h2>
@@ -255,7 +297,6 @@ export default async function AdminPage() {
             )}
           </div>
 
-          {/* Reporte semanal IA */}
           <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Resumen semanal de Sofía</h2>
             <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Generado automáticamente por IA</p>
@@ -281,6 +322,98 @@ export default async function AdminPage() {
           </div>
         </div>
 
+        {/* Scroll depth + Idle pages */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Engagement por producto</h2>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Scroll depth promedio — cuánto leen la página</p>
+            {avgScrollByProduct.length === 0 ? (
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún</p>
+            ) : (
+              <div className="space-y-3">
+                {avgScrollByProduct.map(({ slug, avg }) => (
+                  <div key={slug}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span style={{ color: 'rgba(255,255,255,0.7)' }}>{slug.replace(/-/g, ' ')}</span>
+                      <span style={{ color: avg >= 75 ? '#22c55e' : avg >= 50 ? '#f59e0b' : '#f87171' }}>{avg}%</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                      <div className="h-full rounded-full" style={{
+                        width: `${avg}%`,
+                        background: avg >= 75 ? '#22c55e' : avg >= 50 ? '#f59e0b' : '#f87171'
+                      }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Páginas donde se detienen</h2>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Idle detection — visitantes que se quedan sin interactuar</p>
+            {topIdlePages.length === 0 ? (
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún</p>
+            ) : (
+              <div className="space-y-3">
+                {topIdlePages.map(([url, count], i) => (
+                  <div key={url} className="flex items-center gap-3">
+                    <span className="text-xs font-bold w-5" style={{ color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
+                    <p className="flex-1 text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{url}</p>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa' }}>
+                      {count}x
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Transcripts de conversaciones */}
+        <div className="rounded-2xl p-6 mb-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Conversaciones recientes con Sofía</h2>
+          <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Últimas {recentConversations.length} conversaciones — haz clic para ver el transcript</p>
+          {recentConversations.length === 0 ? (
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin conversaciones aún</p>
+          ) : (
+            <div className="space-y-3">
+              {recentConversations.map((conv: any) => (
+                <details key={conv.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
+                      background: conv.outcome === 'converted' ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.06)',
+                      color: conv.outcome === 'converted' ? '#22c55e' : 'rgba(255,255,255,0.4)'
+                    }}>
+                      {conv.outcome === 'converted' ? '✓ Convertida' : conv.outcome === 'abandoned' ? 'Abandonada' : 'En curso'}
+                    </span>
+                    <span className="text-xs flex-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      {conv.messages?.length ?? 0} mensajes
+                      {conv.objections?.length > 0 && ` · dudas: ${conv.objections.join(', ')}`}
+                    </span>
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      {new Date(conv.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
+                    </span>
+                  </summary>
+                  <div className="px-4 py-3 space-y-2" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                    {conv.messages?.map((msg: any, i: number) => (
+                      <div key={i} className={`flex gap-2 text-xs ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className="max-w-xs px-3 py-2 rounded-xl" style={{
+                          background: msg.role === 'user' ? 'rgba(226,185,111,0.15)' : 'rgba(255,255,255,0.06)',
+                          color: msg.role === 'user' ? '#e2b96f' : 'rgba(255,255,255,0.7)',
+                        }}>
+                          {msg.content}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Sesiones recientes */}
         <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
           <h2 className="text-sm font-semibold mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>Sesiones recientes</h2>
           {recentSessions.length === 0 ? (
@@ -323,6 +456,7 @@ export default async function AdminPage() {
             </div>
           )}
         </div>
+
       </div>
     </div>
   )
