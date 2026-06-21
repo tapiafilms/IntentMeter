@@ -45,8 +45,12 @@ export default function HeroCarousel({ products }: { products: Product[] }) {
     }, 900)
   }, [active, animating])
 
+  // Avanza siempre al siguiente en la cola (active+1)
   const next = useCallback(() => goTo((active + 1) % categories.length), [active, categories.length, goTo])
   const prev_ = useCallback(() => goTo((active - 1 + categories.length) % categories.length), [active, categories.length, goTo])
+
+  // Cola secuencial: siempre active+1, active+2, active+3... (circular)
+  const CARDS_VISIBLE = Math.min(4, categories.length - 1)
 
   useEffect(() => {
     timerRef.current = setTimeout(next, INTERVAL)
@@ -55,11 +59,11 @@ export default function HeroCarousel({ products }: { products: Product[] }) {
 
   if (categories.length === 0) return null
 
-  // Las cards que se muestran a la derecha: las categorías que NO son la activa, max 4
-  const sideCards = categories
-    .map((c, i) => ({ ...c, i }))
-    .filter(c => c.i !== active)
-    .slice(0, 4)
+  // Cola: siempre active+1, active+2... en orden circular
+  const sideCards = Array.from({ length: CARDS_VISIBLE }, (_, pos) => {
+    const idx = (active + 1 + pos) % categories.length
+    return { ...categories[idx], idx }
+  })
 
   const current = categories[active]
   const slideNum = String(active + 1).padStart(2, '0')
@@ -158,44 +162,60 @@ export default function HeroCarousel({ products }: { products: Product[] }) {
             </div>
           </div>
 
-          {/* Cards derecha */}
+          {/* Cards derecha — cola secuencial */}
           {sideCards.length > 0 && (
-            <div className="hidden md:flex items-center gap-3 flex-shrink-0">
+            <div className="hidden md:flex items-end gap-3 flex-shrink-0">
               {sideCards.map((cat, pos) => {
-                const isNext = pos === 0
+                const isFirst = pos === 0
+                // Solo la primera card es clickeable (avanza la cola)
+                const Tag = isFirst ? 'button' : 'div'
                 return (
-                  <button
+                  <Tag
                     key={cat.name}
-                    onClick={() => goTo(cat.i)}
-                    className="relative rounded-2xl overflow-hidden cursor-pointer flex-shrink-0 group"
+                    {...(isFirst ? { onClick: next } : {})}
+                    className={[
+                      'relative rounded-2xl overflow-hidden flex-shrink-0',
+                      isFirst ? 'cursor-pointer group' : 'cursor-default',
+                    ].join(' ')}
                     style={{
-                      width: isNext ? 160 : 110,
-                      height: isNext ? 220 : 150,
-                      transition: 'all 0.5s ease',
-                      opacity: isNext ? 1 : 0.65,
+                      width: isFirst ? 160 : pos === 1 ? 120 : 95,
+                      height: isFirst ? 230 : pos === 1 ? 175 : 140,
+                      transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1)',
+                      opacity: isFirst ? 1 : pos === 1 ? 0.75 : 0.5,
                     }}
                   >
                     {cat.image ? (
                       <img
                         src={cat.image}
                         alt={cat.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className={[
+                          'w-full h-full object-cover transition-transform duration-500',
+                          isFirst ? 'group-hover:scale-105' : '',
+                        ].join(' ')}
                       />
                     ) : (
                       <div className="w-full h-full" style={{ background: 'var(--color-surface-2)' }} />
                     )}
-                    {/* overlay */}
                     <div
                       className="absolute inset-0"
-                      style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 55%)' }}
+                      style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 50%)' }}
                     />
                     <span
-                      className="absolute bottom-3 left-3 right-3 text-white font-semibold text-xs leading-tight"
-                      style={{ fontSize: isNext ? '0.8rem' : '0.7rem' }}
+                      className="absolute bottom-3 left-3 right-3 text-white font-semibold leading-tight"
+                      style={{ fontSize: isFirst ? '0.8rem' : '0.65rem' }}
                     >
                       {cat.name.toUpperCase()}
                     </span>
-                  </button>
+                    {/* Indicador visual en la primera card */}
+                    {isFirst && (
+                      <div
+                        className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center text-xs"
+                        style={{ background: 'var(--color-accent)', color: 'var(--color-brand)' }}
+                      >
+                        →
+                      </div>
+                    )}
+                  </Tag>
                 )
               })}
             </div>
