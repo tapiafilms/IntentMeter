@@ -1,11 +1,9 @@
-import Link from 'next/link'
 import HeroCarousel from '@/components/store/HeroCarousel'
+import FeaturedCarousel from '@/components/store/FeaturedCarousel'
 import { getProducts, getCategories } from '@/lib/supabase/queries'
-import ProductCard from '@/components/store/ProductCard'
 
 export default async function HomePage() {
   const [products, dbCategories] = await Promise.all([getProducts(), getCategories()])
-  const featured = products.slice(0, 4)
 
   // Si hay categorías en la tabla úsalas, si no deriva de productos como fallback
   const categories = dbCategories.length > 0
@@ -21,37 +19,7 @@ export default async function HomePage() {
     <>
       <HeroCarousel categories={categories} />
 
-      {/* Productos destacados */}
-      {featured.length > 0 && (
-        <section className="max-w-6xl mx-auto px-6 py-20">
-          <div className="flex items-end justify-between mb-10">
-            <div>
-              <p className="text-xs font-medium tracking-widest mb-2"
-                style={{ color: 'var(--color-accent)', letterSpacing: '0.15em' }}>
-                DESTACADOS
-              </p>
-              <h2 className="font-display text-3xl md:text-4xl font-bold">
-                Lo más nuevo
-              </h2>
-            </div>
-            <Link
-              href="/productos"
-              className="text-sm font-medium hidden md:flex items-center gap-1 transition-opacity hover:opacity-70"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              Ver todo <span>→</span>
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {featured.map((product, i) => (
-              <div key={product.id}>
-                <ProductCard product={product} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      <FeaturedCarousel products={products} />
 
       {/* Banner propuesta de valor */}
       <section style={{ background: 'var(--color-surface-2)' }}>
