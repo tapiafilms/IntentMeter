@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
 
@@ -28,12 +29,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
     }
 
-    // Merge store config into existing config (preserves widget/rules/ai settings)
-    const { data: current } = await db.from('tenants').select('config').eq('id', TENANT_ID).single()
+    // Usar service client para bypassear RLS en tenants
+    const svc = createServiceClient()
+    const { data: current } = await svc.from('tenants').select('config').eq('id', TENANT_ID).single()
     const merged = { ...(current?.config ?? {}), store }
 
-    const { error } = await db.from('tenants').update({ config: merged }).eq('id', TENANT_ID)
+    const { error } = await svc.from('tenants').update({ config: merged }).eq('id', TENANT_ID)
     if (error) throw error
+
+    revalidatePath('/', 'layout')
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {

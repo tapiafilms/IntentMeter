@@ -36,5 +36,10 @@ export function createStaticClient() {
   )
 }
 
-// Alias para compatibilidad
-export const createServiceClient = createClient
+// Cliente con service role — bypasea RLS, solo para lectura de config interna
+export function createServiceClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}

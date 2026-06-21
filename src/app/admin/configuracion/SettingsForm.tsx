@@ -200,7 +200,7 @@ export default function SettingsForm({ initial }: { initial: TenantStoreConfig }
           {status === 'saving' ? 'Guardando...' : 'Guardar cambios'}
         </button>
         {status === 'ok' && (
-          <span className="text-sm" style={{ color: '#22c55e' }}>✓ Guardado — recarga la tienda para ver los cambios</span>
+          <span className="text-sm" style={{ color: '#22c55e' }}>✓ Guardado</span>
         )}
         {status === 'error' && (
           <span className="text-sm" style={{ color: '#f87171' }}>{errorMsg}</span>

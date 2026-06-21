@@ -2,7 +2,7 @@
 // lib/supabase/queries.ts
 // Funciones de query reutilizables — evita SQL repetido
 // ============================================================
-import { createClient, createStaticClient } from './server'
+import { createClient, createStaticClient, createServiceClient } from './server'
 import type { Product, Session, Conversation, WeeklyReport, Tenant, TenantStoreConfig } from './types'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
@@ -21,7 +21,7 @@ export const DEFAULT_STORE_CONFIG: TenantStoreConfig = {
 
 export async function getTenant(): Promise<Tenant | null> {
   try {
-    const db = await createClient()
+    const db = createServiceClient()
     const { data } = await db.from('tenants').select('*').eq('id', TENANT_ID).single()
     return data as Tenant | null
   } catch {
