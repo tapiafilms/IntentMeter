@@ -1,668 +1,661 @@
-// ============================================================
-// app/admin/page.tsx
-// Dashboard de administración — Tienda Inteligente
-// ============================================================
-import { createClient } from '@/lib/supabase/server'
-import type { Session, SessionEvent, Conversation, WeeklyReport } from '@/lib/supabase/types'
+'use client'
+
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
+const BUCKET = 'productos'
+const supabase = createClient()
 
-async function getDashboardData() {
-  const db = await createClient()
-  const since7days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-
-  const { data: sessions } = await db
-    .from('sessions')
-    .select('*')
-    .eq('tenant_id', TENANT_ID)
-    .gte('started_at', since7days)
-    .order('started_at', { ascending: false })
-
-  const { data: events } = await db
-    .from('session_events')
-    .select('type, payload, created_at, session_id')
-    .eq('tenant_id', TENANT_ID)
-    .gte('created_at', since7days)
-
-  const { data: conversations } = await db
-    .from('conversations')
-    .select('objections, messages, product_id, outcome, created_at')
-    .eq('tenant_id', TENANT_ID)
-    .gte('created_at', since7days)
-
-  const { data: recentConversations } = await db
-    .from('conversations')
-    .select('id, session_id, messages, objections, outcome, created_at')
-    .eq('tenant_id', TENANT_ID)
-    .gte('created_at', since7days)
-    .order('created_at', { ascending: false })
-    .limit(10)
-
-  const { data: scrollEvents } = await db
-    .from('session_events')
-    .select('payload, session_id')
-    .eq('tenant_id', TENANT_ID)
-    .eq('type', 'scroll_depth')
-    .gte('created_at', since7days)
-
-  const { data: idleEvents } = await db
-    .from('session_events')
-    .select('payload, session_id')
-    .eq('tenant_id', TENANT_ID)
-    .eq('type', 'idle_detected')
-    .gte('created_at', since7days)
-
-  const { data: weeklyReport } = await db
-    .from('weekly_reports')
-    .select('*')
-    .eq('tenant_id', TENANT_ID)
-    .order('week_start', { ascending: false })
-    .limit(1)
-    .single()
-
-  return {
-    sessions: sessions ?? [],
-    events: events ?? [],
-    conversations: conversations ?? [],
-    recentConversations: recentConversations ?? [],
-    scrollEvents: scrollEvents ?? [],
-    idleEvents: idleEvents ?? [],
-    weeklyReport: weeklyReport ?? null,
-  }
+// ── Types ─────────────────────────────────────────────────────
+type Product = {
+  id: string
+  tenant_id?: string
+  name: string
+  slug: string
+  description?: string
+  price: number
+  category?: string
+  images?: string[]
+  variants?: Variant[]
+  metadata?: Record<string, unknown>
+  active: boolean
+  created_at?: string
+}
+type Variant = { name: string; value: string; stock: number }
+type MenuItem = { label: string; url: string; parent: string }
+type StoreConfig = {
+  name: string; tagline: string; logo_url: string
+  email: string; phone: string; instagram: string; whatsapp: string
+  primary_color: string; accent_color: string
 }
 
-export default async function AdminPage() {
-  const data = await getDashboardData()
-  const sessions = data.sessions as Session[]
-  const events = data.events as SessionEvent[]
-  const conversations = data.conversations as Conversation[]
-  const recentConversations = data.recentConversations as any[]
-  const scrollEvents = data.scrollEvents as any[]
-  const idleEvents = data.idleEvents as any[]
-  const weeklyReport = data.weeklyReport as WeeklyReport | null
+const DEFAULT_CONFIG: StoreConfig = {
+  name: 'Mi Tienda', tagline: '', logo_url: '', email: '',
+  phone: '', instagram: '', whatsapp: '',
+  primary_color: '#1a1a2e', accent_color: '#e2b96f',
+}
 
-  // ── KPIs base ─────────────────────────────────────────────
-  const totalSessions = sessions.length
-  const converted = sessions.filter(s => s.converted).length
-  const conversionRate = totalSessions > 0 ? ((converted / totalSessions) * 100).toFixed(1) : '0'
-  const avgScore = totalSessions > 0
-    ? Math.round(sessions.reduce((sum, s) => sum + (s.intent_score ?? 0), 0) / totalSessions)
-    : 0
+// ── Helpers ───────────────────────────────────────────────────
+const fmt = (n: number) => n ? '$' + Number(n).toLocaleString('es-CL') : '—'
+const ago = (d: string) => {
+  const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000)
+  if (s < 60) return `hace ${s}s`
+  if (s < 3600) return `hace ${Math.floor(s / 60)}m`
+  if (s < 86400) return `hace ${Math.floor(s / 3600)}h`
+  return new Date(d).toLocaleDateString('es-CL')
+}
+const toSlug = (s: string) => s.toLowerCase()
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-')
 
-  // ── Duración promedio de sesión ────────────────────────────
-  const sessionsWithDuration = sessions.filter(s => s.ended_at && s.started_at)
-  const avgDurationSeconds = sessionsWithDuration.length > 0
-    ? Math.round(sessionsWithDuration.reduce((sum, s) => {
-        const duration = (new Date(s.ended_at!).getTime() - new Date(s.started_at).getTime()) / 1000
-        return sum + duration
-      }, 0) / sessionsWithDuration.length)
-    : 0
-  const avgDurationLabel = avgDurationSeconds >= 60
-    ? `${Math.floor(avgDurationSeconds / 60)}m ${avgDurationSeconds % 60}s`
-    : `${avgDurationSeconds}s`
-
-  // ── Distribución de intención ──────────────────────────────
-  const intentDist = sessions.reduce((acc: Record<string, number>, s) => {
-    const type = s.intent_type ?? 'curious'
-    acc[type] = (acc[type] || 0) + 1
-    return acc
-  }, {})
-
-  // ── Productos más vistos ───────────────────────────────────
-  const productViews = events
-    .filter(e => e.type === 'product_view')
-    .reduce((acc: Record<string, number>, e) => {
-      const slug = (e.payload as any)?.slug ?? 'unknown'
-      acc[slug] = (acc[slug] || 0) + 1
-      return acc
-    }, {})
-  const topProducts = Object.entries(productViews).sort(([, a], [, b]) => b - a).slice(0, 5)
-
-  // ── Productos revisitados (interés alto) ──────────────────
-  const productRevisits = events
-    .filter(e => e.type === 'product_revisit')
-    .reduce((acc: Record<string, number>, e) => {
-      const slug = (e.payload as any)?.slug ?? 'unknown'
-      acc[slug] = (acc[slug] || 0) + 1
-      return acc
-    }, {})
-  const topRevisits = Object.entries(productRevisits).sort(([, a], [, b]) => b - a).slice(0, 5)
-
-  // ── Eventos de carrito ─────────────────────────────────────
-  const cartEvents = events.filter(e => e.type === 'add_to_cart').length
-  const removeFromCartEvents = events.filter(e => e.type === 'remove_from_cart').length
-  const cartViewEvents = events.filter(e => e.type === 'cart_view').length
-
-  // Productos más añadidos al carrito
-  const addToCartByProduct = events
-    .filter(e => e.type === 'add_to_cart')
-    .reduce((acc: Record<string, number>, e) => {
-      const slug = (e.payload as any)?.slug ?? (e.payload as any)?.product_id ?? 'unknown'
-      acc[slug] = (acc[slug] || 0) + 1
-      return acc
-    }, {})
-  const topCartProducts = Object.entries(addToCartByProduct).sort(([, a], [, b]) => b - a).slice(0, 5)
-
-  // ── Exit intents ───────────────────────────────────────────
-  const exitEvents = events.filter(e => e.type === 'exit_intent').length
-  const exitByProduct: Record<string, number> = {}
-  events.filter(e => e.type === 'exit_intent').forEach(e => {
-    const slug = (e.payload as any)?.slug ?? (e.payload as any)?.currentProduct ?? 'inicio'
-    exitByProduct[slug] = (exitByProduct[slug] || 0) + 1
+async function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, maxWidth / img.width)
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w; canvas.height = h
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas error')), 'image/webp', quality)
+    }
+    img.onerror = reject; img.src = url
   })
-  const topExits = Object.entries(exitByProduct).sort(([, a], [, b]) => b - a).slice(0, 5)
+}
 
-  // ── Búsquedas ──────────────────────────────────────────────
-  const searchQueries = events
-    .filter(e => e.type === 'search_query')
-    .reduce((acc: Record<string, number>, e) => {
-      const query = (e.payload as any)?.query ?? 'desconocido'
-      acc[query] = (acc[query] || 0) + 1
-      return acc
-    }, {})
-  const topSearches = Object.entries(searchQueries).sort(([, a], [, b]) => b - a).slice(0, 8)
+function useToast() {
+  const [toast, setToast] = useState<{ msg: string; type: string } | null>(null)
+  const show = (msg: string, type = '') => { setToast({ msg, type }); setTimeout(() => setToast(null), 2800) }
+  return { toast, show }
+}
 
-  // ── Páginas consultadas (shipping/returns) ─────────────────
-  const shippingViews = events.filter(e => e.type === 'shipping_view').length
-  const returnsViews = events.filter(e => e.type === 'returns_view').length
+// ── Styles ────────────────────────────────────────────────────
+const s = {
+  shell:   { display: 'flex', height: '100vh', overflow: 'hidden', background: '#0e0e0e', fontFamily: 'DM Sans, sans-serif', color: '#f0ede8', fontSize: 13 } as React.CSSProperties,
+  sidebar: { width: 220, background: '#161616', borderRight: '1px solid #2a2a2a', display: 'flex', flexDirection: 'column' as const, flexShrink: 0 },
+  main:    { flex: 1, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' },
+  topbar:  { padding: '0 24px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #2a2a2a', background: '#161616', flexShrink: 0 },
+  content: { flex: 1, overflowY: 'auto' as const, padding: 24 },
+  nav: (active: boolean): React.CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 8, cursor: 'pointer', color: active ? '#f0ede8' : '#8a8580', fontSize: 13, background: active ? '#262626' : 'transparent', marginBottom: 1 }),
+  btn: (v: 'primary' | 'ghost' | 'danger'): React.CSSProperties => ({ padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 500, border: 'none', background: v === 'primary' ? '#c9b99a' : 'transparent', color: v === 'primary' ? '#1a1410' : v === 'danger' ? '#e05a5a' : '#8a8580', ...(v !== 'primary' ? { border: `1px solid ${v === 'danger' ? '#5a2a2a' : '#333'}` } : {}) }),
+  input:   { background: '#1e1e1e', border: '1px solid #2a2a2a', color: '#f0ede8', borderRadius: 8, padding: '8px 10px', fontSize: 13, fontFamily: 'DM Sans, sans-serif', width: '100%', outline: 'none' } as React.CSSProperties,
+  panel:   { background: '#161616', border: '1px solid #2a2a2a', borderRadius: 12, padding: 20, marginBottom: 16 } as React.CSSProperties,
+  stat:    { background: '#161616', border: '1px solid #2a2a2a', borderRadius: 12, padding: '16px 18px', flex: 1 } as React.CSSProperties,
+  th:      { padding: '10px 14px', textAlign: 'left' as const, fontSize: 10, color: '#555', textTransform: 'uppercase' as const, letterSpacing: '0.08em', fontWeight: 400, borderBottom: '1px solid #2a2a2a' },
+  td:      { padding: '11px 14px', borderBottom: '1px solid #1e1e1e', color: '#8a8580', verticalAlign: 'middle' as const },
+  label:   { display: 'block', fontSize: 10, color: '#555', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 6 },
+}
 
-  // ── Sofía ──────────────────────────────────────────────────
-  const sofiaConversations = conversations.length
-  const sofiaConverted = conversations.filter(c => (c as any).outcome === 'converted').length
-  const sofiaConversionRate = sofiaConversations > 0
-    ? ((sofiaConverted / sofiaConversations) * 100).toFixed(0)
-    : '0'
+export default function AdminPage() {
+  const router = useRouter()
+  const { toast, show } = useToast()
 
-  const objectionCounts: Record<string, number> = {}
-  conversations.forEach(c => {
-    const conv = c as any
-    conv.objections?.forEach((obj: string) => {
-      objectionCounts[obj] = (objectionCounts[obj] || 0) + 1
-    })
-  })
-  const topObjections = Object.entries(objectionCounts).sort(([, a], [, b]) => b - a).slice(0, 6)
+  const [section, setSection] = useState('dashboard')
+  const [loading, setLoading] = useState(true)
 
-  // ── Scroll depth por producto ──────────────────────────────
-  const scrollByProduct: Record<string, number[]> = {}
-  scrollEvents.forEach(e => {
-    const slug = (e.payload as any)?.slug ?? 'unknown'
-    if (!scrollByProduct[slug]) scrollByProduct[slug] = []
-    scrollByProduct[slug].push((e.payload as any)?.depth ?? 0)
-  })
-  const avgScrollByProduct = Object.entries(scrollByProduct)
-    .map(([slug, depths]) => ({
-      slug,
-      avg: Math.round(depths.reduce((a, b) => a + b, 0) / depths.length)
-    }))
-    .sort((a, b) => b.avg - a.avg)
-    .slice(0, 5)
+  // Productos
+  const [products, setProducts] = useState<Product[]>([])
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
+  const [searchQ, setSearchQ] = useState('')
+  const [catFilter, setCatFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [stats, setStats] = useState({ total: 0, active: 0, cats: 0, orders: 0 })
 
-  // ── Idle por página ────────────────────────────────────────
-  const idleByPage: Record<string, number> = {}
-  idleEvents.forEach(e => {
-    const url = (e.payload as any)?.url ?? 'unknown'
-    idleByPage[url] = (idleByPage[url] || 0) + 1
-  })
-  const topIdlePages = Object.entries(idleByPage).sort(([, a], [, b]) => b - a).slice(0, 5)
+  // Modal producto
+  const [modal, setModal] = useState(false)
+  const [editProduct, setEditProduct] = useState<Partial<Product>>({})
+  const [editImages, setEditImages] = useState<string[]>([])
+  const [editVariants, setEditVariants] = useState<Variant[]>([])
+  const [editActive, setEditActive] = useState(true)
+  const [newImgUrl, setNewImgUrl] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const recentSessions = sessions.slice(0, 8)
+  // Órdenes
+  const [orders, setOrders] = useState<Record<string, unknown>[]>([])
 
-  const INTENT_COLORS: Record<string, string> = {
-    curious: '#94a3b8', undecided: '#f59e0b', comparator: '#3b82f6',
-    price_sensitive: '#8b5cf6', buyer: '#22c55e',
+  // Menú
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+
+  // Configuración
+  const [config, setConfig] = useState<StoreConfig>(DEFAULT_CONFIG)
+  const [configSaving, setConfigSaving] = useState(false)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  // ── Load ─────────────────────────────────────────────────────
+  const loadProducts = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false })
+    const list = (data || []) as Product[]
+    setProducts(list)
+    setFilteredProducts(list)
+    const cats = new Set(list.map(p => p.category).filter(Boolean))
+    const { count } = await supabase.from('orders').select('id', { count: 'exact', head: true })
+    setStats({ total: list.length, active: list.filter(p => p.active).length, cats: cats.size, orders: count ?? 0 })
+    setLoading(false)
+  }, [])
+
+  const loadOrders = useCallback(async () => {
+    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(50)
+    setOrders((data || []) as Record<string, unknown>[])
+  }, [])
+
+  const loadMenu = useCallback(async () => {
+    const { data } = await supabase.from('nav_items').select('*').eq('tenant_id', TENANT_ID).order('sort_order', { ascending: true })
+    setMenuItems((data || []) as MenuItem[])
+  }, [])
+
+  const loadConfig = useCallback(async () => {
+    const res = await fetch('/api/admin/settings')
+    if (!res.ok) return
+    const { config: cfg } = await res.json()
+    if (cfg?.store) setConfig({ ...DEFAULT_CONFIG, ...cfg.store })
+  }, [])
+
+  useEffect(() => { loadProducts() }, [loadProducts])
+  useEffect(() => {
+    if (section === 'orders' && orders.length === 0) loadOrders()
+    if (section === 'menu' && menuItems.length === 0) loadMenu()
+    if (section === 'settings') loadConfig()
+  }, [section])
+
+  useEffect(() => {
+    let list = products
+    if (searchQ) list = list.filter(p => p.name?.toLowerCase().includes(searchQ.toLowerCase()) || p.slug?.toLowerCase().includes(searchQ.toLowerCase()))
+    if (catFilter) list = list.filter(p => p.category === catFilter)
+    if (statusFilter === 'active') list = list.filter(p => p.active)
+    if (statusFilter === 'inactive') list = list.filter(p => !p.active)
+    setFilteredProducts(list)
+  }, [searchQ, catFilter, statusFilter, products])
+
+  // ── Auth ──────────────────────────────────────────────────────
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push('/admin/login')
   }
-  const INTENT_LABELS: Record<string, string> = {
-    curious: 'Curioso', undecided: 'Indeciso', comparator: 'Comparando',
-    price_sensitive: 'Sensible al precio', buyer: 'Listo para comprar',
+
+  // ── Productos ─────────────────────────────────────────────────
+  function openNew() { setEditProduct({}); setEditImages([]); setEditVariants([]); setEditActive(true); setModal(true) }
+  function openEdit(p: Product) { setEditProduct(p); setEditImages(p.images || []); setEditVariants(p.variants || []); setEditActive(p.active); setModal(true) }
+
+  async function handleImageUpload(files: FileList | null) {
+    if (!files || files.length === 0) return
+    setUploading(true)
+    const urls: string[] = []
+    for (const file of Array.from(files)) {
+      try {
+        const compressed = await compressImage(file)
+        const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.webp`
+        const { error } = await supabase.storage.from(BUCKET).upload(filename, compressed, { contentType: 'image/webp', upsert: false })
+        if (error) { show(`Error subiendo ${file.name}: ${error.message}`, 'error'); continue }
+        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename)
+        urls.push(urlData.publicUrl)
+        show(`✓ ${file.name} subido`, 'success')
+      } catch { show(`Error procesando ${file.name}`, 'error') }
+    }
+    setEditImages(imgs => [...imgs, ...urls])
+    setUploading(false)
   }
 
-  // ── Funnel ─────────────────────────────────────────────────
-  const totalProductViews = events.filter(e => e.type === 'product_view').length
-  const funnelSteps = [
-    { label: 'Sesiones', value: totalSessions, color: '#e2b96f' },
-    { label: 'Vistas de producto', value: totalProductViews, color: '#3b82f6' },
-    { label: 'Add to cart', value: cartEvents, color: '#8b5cf6' },
-    { label: 'Conversiones', value: converted, color: '#22c55e' },
+  async function saveProduct() {
+    if (!editProduct.name) { show('El nombre es obligatorio', 'error'); return }
+    setSaving(true)
+    const payload = { tenant_id: TENANT_ID, name: editProduct.name, slug: editProduct.slug || toSlug(editProduct.name), price: Number(editProduct.price) || 0, description: editProduct.description || '', category: editProduct.category || '', images: editImages, variants: editVariants, active: editActive }
+    let err, savedId: string | undefined
+    if (editProduct.id) {
+      ;({ error: err } = await supabase.from('products').update(payload).eq('id', editProduct.id).eq('tenant_id', TENANT_ID))
+      savedId = editProduct.id
+    } else {
+      const { data: inserted, error: insertErr } = await supabase.from('products').insert(payload).select('id').single()
+      err = insertErr; savedId = inserted?.id
+    }
+    setSaving(false)
+    if (err) { show('Error: ' + err.message, 'error'); return }
+    show(editProduct.id ? 'Producto actualizado ✓' : 'Producto creado ✓', 'success')
+    setModal(false)
+    loadProducts()
+    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: payload.slug }) }).catch(() => {})
+    if (savedId) {
+      const text = [payload.name, payload.description, payload.category].filter(Boolean).join(' — ')
+      fetch('/api/embeddings/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId: savedId, text }) })
+        .then(r => r.json()).then(r => { if (r.ok) show(`Embedding generado ✓`, 'success') }).catch(() => {})
+    }
+  }
+
+  async function deleteProduct() {
+    if (!editProduct.id || !confirm('¿Eliminar este producto?')) return
+    const { error } = await supabase.from('products').delete().eq('id', editProduct.id)
+    if (error) { show('Error: ' + error.message, 'error'); return }
+    show('Producto eliminado', ''); setModal(false); loadProducts()
+  }
+
+  // ── Menú ──────────────────────────────────────────────────────
+  async function saveMenu() {
+    await supabase.from('nav_items').delete().eq('tenant_id', TENANT_ID)
+    if (menuItems.length > 0) {
+      const { error } = await supabase.from('nav_items').insert(menuItems.map((item, i) => ({ tenant_id: TENANT_ID, label: item.label, url: item.url, parent: item.parent, sort_order: i })))
+      if (error) { show('Error guardando menú: ' + error.message, 'error'); return }
+    }
+    show('Menú publicado ✓', 'success')
+    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: null }) }).catch(() => {})
+  }
+
+  // ── Configuración ─────────────────────────────────────────────
+  async function uploadLogo(file: File) {
+    setLogoUploading(true)
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `logos/logo-${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type })
+      if (error) throw error
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+      setConfig(c => ({ ...c, logo_url: data.publicUrl }))
+    } catch (err: any) { show('Error al subir logo: ' + err.message, 'error') }
+    finally { setLogoUploading(false) }
+  }
+
+  async function saveConfig() {
+    setConfigSaving(true)
+    const res = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ store: config }) })
+    const data = await res.json()
+    setConfigSaving(false)
+    if (!res.ok) { show('Error: ' + data.error, 'error'); return }
+    show('Configuración guardada ✓', 'success')
+  }
+
+  // ── Nav ───────────────────────────────────────────────────────
+  const SECTIONS: { id: string; label: string; badge?: number }[] = [
+    { id: 'dashboard',  label: 'Dashboard' },
+    { id: 'products',   label: 'Productos', badge: stats.total },
+    { id: 'categories', label: 'Categorías' },
+    { id: 'orders',     label: 'Órdenes', badge: stats.orders },
+    { id: 'menu',       label: 'Menú' },
+    { id: 'settings',   label: 'Configuración' },
   ]
-  const funnelMax = funnelSteps[0].value || 1
+
+  const SECTION_TITLE: Record<string, string> = { dashboard: 'Dashboard', products: 'Productos', categories: 'Categorías', orders: 'Órdenes', menu: 'Menú', settings: 'Configuración' }
 
   return (
-    <div className="min-h-screen" style={{ background: '#0f0f1e', color: 'white', fontFamily: 'var(--font-body)' }}>
+    <>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-      {/* Header */}
-      <div className="border-b px-8 py-5 flex items-center justify-between" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-        <div>
-          <h1 className="text-xl font-bold" style={{ color: '#e2b96f' }}>Tienda Inteligente</h1>
-          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>Dashboard de administración — últimos 7 días</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <a href="/admin/configuracion" className="text-xs px-4 py-2 rounded-full transition-all hover:opacity-80" style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)' }}>
-            ⚙ Configuración
-          </a>
-          <a href="/admin/productos" className="text-xs px-4 py-2 rounded-full transition-all hover:opacity-80" style={{ background: 'rgba(226,185,111,0.15)', border: '1px solid rgba(226,185,111,0.3)', color: '#e2b96f' }}>
-            Gestionar productos
-          </a>
-          <a href="/" className="text-xs px-4 py-2 rounded-full transition-all hover:opacity-80" style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)' }}>
-            ← Ver tienda
-          </a>
-        </div>
-      </div>
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#1e1e1e', border: `1px solid ${toast.type === 'success' ? '#2a5a3a' : toast.type === 'error' ? '#5a2a2a' : '#333'}`, color: toast.type === 'success' ? '#4caf7d' : toast.type === 'error' ? '#e05a5a' : '#f0ede8', padding: '10px 16px', borderRadius: 8, fontSize: 13, zIndex: 9999, maxWidth: 340 }}>{toast.msg}</div>
+      )}
 
-      <div className="px-8 py-8 max-w-7xl mx-auto">
+      <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => handleImageUpload(e.target.files)} />
+      <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = '' }} />
 
-        {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Sesiones totales', value: totalSessions, sub: 'últimos 7 días', color: '#e2b96f' },
-            { label: 'Conversiones', value: converted, sub: `${conversionRate}% tasa`, color: '#22c55e' },
-            { label: 'Score promedio', value: `${avgScore}/100`, sub: 'intención media', color: '#3b82f6' },
-            { label: 'Duración promedio', value: avgDurationLabel, sub: `${sessionsWithDuration.length} sesiones con datos`, color: '#f59e0b' },
-          ].map(kpi => (
-            <div key={kpi.label} className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.4)' }}>{kpi.label}</p>
-              <p className="text-3xl font-bold mb-1" style={{ color: kpi.color }}>{kpi.value}</p>
-              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{kpi.sub}</p>
+      {/* MODAL PRODUCTO */}
+      {modal && (
+        <div onClick={e => e.target === e.currentTarget && setModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: '#161616', border: '1px solid #333', borderRadius: 12, width: '100%', maxWidth: 680, maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#161616' }}>
+              <span style={{ fontSize: 14, fontWeight: 500 }}>{editProduct.id ? editProduct.name : 'Nuevo producto'}</span>
+              <button onClick={() => setModal(false)} style={{ ...s.btn('ghost'), padding: '4px 8px' }}>✕</button>
             </div>
-          ))}
-        </div>
-
-        {/* KPIs secundarios */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
-          {[
-            { label: 'Vistas de producto', value: totalProductViews, color: '#60a5fa' },
-            { label: 'Add to cart', value: cartEvents, color: '#a78bfa' },
-            { label: 'Remove from cart', value: removeFromCartEvents, color: '#f87171' },
-            { label: 'Vistas del carrito', value: cartViewEvents, color: '#34d399' },
-            { label: 'Exit intents', value: exitEvents, color: '#fb923c' },
-          ].map(kpi => (
-            <div key={kpi.label} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.35)' }}>{kpi.label}</p>
-              <p className="text-2xl font-bold" style={{ color: kpi.color }}>{kpi.value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Funnel de conversión */}
-        <div className="rounded-2xl p-6 mb-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Funnel de conversión</h2>
-          <p className="text-xs mb-6" style={{ color: 'rgba(255,255,255,0.3)' }}>Dónde se cae la gente</p>
-          <div className="flex items-end gap-3 justify-between">
-            {funnelSteps.map((step, i) => {
-              const pct = funnelMax > 0 ? (step.value / funnelMax) * 100 : 0
-              const dropPct = i > 0 && funnelSteps[i - 1].value > 0
-                ? (((funnelSteps[i - 1].value - step.value) / funnelSteps[i - 1].value) * 100).toFixed(0)
-                : null
-              return (
-                <div key={step.label} className="flex-1 flex flex-col items-center gap-2">
-                  {dropPct !== null && (
-                    <p className="text-xs font-medium" style={{ color: '#f87171' }}>−{dropPct}%</p>
-                  )}
-                  <div className="w-full rounded-xl flex flex-col justify-end overflow-hidden" style={{ height: '120px', background: 'rgba(255,255,255,0.04)' }}>
-                    <div
-                      className="w-full rounded-xl transition-all"
-                      style={{
-                        height: `${Math.max(pct, 4)}%`,
-                        background: step.color,
-                        opacity: 0.8,
-                      }}
+            <div style={{ padding: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                {[
+                  { label: 'Nombre', key: 'name', placeholder: 'Nombre del producto' },
+                  { label: 'Slug (URL)', key: 'slug', placeholder: 'nombre-del-producto' },
+                  { label: 'Precio (CLP)', key: 'price', placeholder: '49900', type: 'number' },
+                ].map(f => (
+                  <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <label style={s.label}>{f.label}</label>
+                    <input type={f.type || 'text'} style={s.input} placeholder={f.placeholder}
+                      value={(editProduct[f.key as keyof Product] as string) || ''}
+                      onChange={e => { const val = e.target.value; setEditProduct(p => ({ ...p, [f.key]: val, ...(f.key === 'name' && !p.id ? { slug: toSlug(val) } : {}) })) }}
                     />
                   </div>
-                  <p className="text-2xl font-bold" style={{ color: step.color }}>{step.value}</p>
-                  <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>{step.label}</p>
+                ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label style={s.label}>Categoría</label>
+                  <select style={s.input} value={editProduct.category || ''} onChange={e => setEditProduct(p => ({ ...p, category: e.target.value }))}>
+                    <option value="">Seleccionar...</option>
+                    {[...new Set(products.map(p => p.category).filter(Boolean) as string[])].sort().map(c => <option key={c}>{c}</option>)}
+                  </select>
                 </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Intención + Productos más vistos */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="text-sm font-semibold mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>Distribución de intención</h2>
-            {totalSessions === 0 ? <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún</p> : (
-              <div className="space-y-3">
-                {Object.entries(intentDist).sort(([, a], [, b]) => b - a).map(([type, count]) => (
-                  <div key={type}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span style={{ color: INTENT_COLORS[type] ?? 'white' }}>{INTENT_LABELS[type] ?? type}</span>
-                      <span style={{ color: 'rgba(255,255,255,0.5)' }}>{count} sesiones</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${(count / totalSessions) * 100}%`, background: INTENT_COLORS[type] ?? '#94a3b8' }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="text-sm font-semibold mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>Productos más vistos</h2>
-            {topProducts.length === 0 ? <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún</p> : (
-              <div className="space-y-3">
-                {topProducts.map(([slug, count], i) => (
-                  <div key={slug} className="flex items-center gap-3">
-                    <span className="text-xs font-bold w-5" style={{ color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
-                    <p className="flex-1 text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{slug.replace(/-/g, ' ')}</p>
-                    <span className="text-xs font-bold" style={{ color: '#e2b96f' }}>{count} vistas</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Productos revisitados + Productos al carrito */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Productos revisitados</h2>
-            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Interés alto — volvieron a ver el mismo producto</p>
-            {topRevisits.length === 0 ? (
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún</p>
-            ) : (
-              <div className="space-y-3">
-                {topRevisits.map(([slug, count], i) => (
-                  <div key={slug} className="flex items-center gap-3">
-                    <span className="text-xs font-bold w-5" style={{ color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
-                    <p className="flex-1 text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{slug.replace(/-/g, ' ')}</p>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa' }}>
-                      {count}x
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Más añadidos al carrito</h2>
-            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Productos que generan más intención de compra</p>
-            {topCartProducts.length === 0 ? (
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún</p>
-            ) : (
-              <div className="space-y-3">
-                {topCartProducts.map(([slug, count], i) => (
-                  <div key={slug} className="flex items-center gap-3">
-                    <span className="text-xs font-bold w-5" style={{ color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
-                    <p className="flex-1 text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{slug.replace(/-/g, ' ')}</p>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa' }}>
-                      {count}x
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Búsquedas + Políticas consultadas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Qué buscan los visitantes</h2>
-            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Términos de búsqueda más frecuentes</p>
-            {topSearches.length === 0 ? (
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin búsquedas registradas aún</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {topSearches.map(([query, count]) => (
-                  <span key={query} className="px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5"
-                    style={{ background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.2)', color: '#60a5fa' }}>
-                    {query}
-                    <span className="px-1.5 py-0.5 rounded-full text-xs font-bold" style={{ background: 'rgba(96,165,250,0.2)', color: '#60a5fa' }}>{count}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Políticas consultadas</h2>
-            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Qué revisan antes de decidir</p>
-            <div className="space-y-4">
-              {[
-                { label: 'Página de envíos', value: shippingViews, color: '#34d399', icon: '🚚' },
-                { label: 'Cambios y devoluciones', value: returnsViews, color: '#f59e0b', icon: '↩' },
-              ].map(item => (
-                <div key={item.label} className="flex items-center gap-3">
-                  <span className="text-lg">{item.icon}</span>
-                  <div className="flex-1">
-                    <p className="text-xs font-medium mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>{item.label}</p>
-                    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${Math.min((item.value / Math.max(shippingViews, returnsViews, 1)) * 100, 100)}%`, background: item.color }} />
-                    </div>
-                  </div>
-                  <span className="text-sm font-bold" style={{ color: item.color }}>{item.value}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, gridColumn: '1 / -1' }}>
+                  <label style={s.label}>Descripción</label>
+                  <textarea style={{ ...s.input, resize: 'vertical', minHeight: 80 }} placeholder="Descripción..." value={editProduct.description || ''} onChange={e => setEditProduct(p => ({ ...p, description: e.target.value }))} />
                 </div>
-              ))}
-              {shippingViews === 0 && returnsViews === 0 && (
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún</p>
-              )}
+              </div>
+
+              {/* Imágenes */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ ...s.label, marginBottom: 8 }}>Imágenes</label>
+                <div onClick={() => fileInputRef.current?.click()} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleImageUpload(e.dataTransfer.files) }}
+                  style={{ border: '1.5px dashed #333', borderRadius: 8, padding: 20, textAlign: 'center', cursor: 'pointer', background: '#1a1a1a', marginBottom: 10 }}>
+                  {uploading ? <div style={{ color: '#c9b99a', fontSize: 12 }}>Subiendo...</div> : <>
+                    <div style={{ fontSize: 22, marginBottom: 4 }}>📁</div>
+                    <div style={{ fontSize: 12, color: '#8a8580' }}>Arrastra o <span style={{ color: '#c9b99a' }}>haz clic</span></div>
+                    <div style={{ fontSize: 10, color: '#555', marginTop: 4 }}>JPG, PNG, WEBP · Se comprimen a WebP</div>
+                  </>}
+                </div>
+                {editImages.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 8, marginBottom: 8 }}>
+                    {editImages.map((url, i) => (
+                      <div key={i} style={{ aspectRatio: '1', borderRadius: 8, border: '1px solid #2a2a2a', overflow: 'hidden', position: 'relative' }}>
+                        <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button onClick={() => setEditImages(imgs => imgs.filter((_, j) => j !== i))} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', color: '#e05a5a', cursor: 'pointer', fontSize: 10 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input type="text" style={{ ...s.input, fontSize: 11 }} placeholder="O pega una URL externa..." value={newImgUrl} onChange={e => setNewImgUrl(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && newImgUrl.trim()) { setEditImages(i => [...i, newImgUrl.trim()]); setNewImgUrl('') } }} />
+                  <button style={{ ...s.btn('ghost'), whiteSpace: 'nowrap', fontSize: 11 }} onClick={() => { if (newImgUrl.trim()) { setEditImages(i => [...i, newImgUrl.trim()]); setNewImgUrl('') } }}>+ URL</button>
+                </div>
+              </div>
+
+              {/* Variantes */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ ...s.label, marginBottom: 8 }}>Variantes</label>
+                {editVariants.map((v, i) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 32px', gap: 6, marginBottom: 6 }}>
+                    <input style={s.input} placeholder="Nombre (Talla)" value={v.name} onChange={e => setEditVariants(vs => vs.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                    <input style={s.input} placeholder="Valor (M)" value={v.value} onChange={e => setEditVariants(vs => vs.map((x, j) => j === i ? { ...x, value: e.target.value } : x))} />
+                    <input type="number" style={s.input} placeholder="Stock" value={v.stock} onChange={e => setEditVariants(vs => vs.map((x, j) => j === i ? { ...x, stock: Number(e.target.value) } : x))} />
+                    <button onClick={() => setEditVariants(vs => vs.filter((_, j) => j !== i))} style={{ ...s.btn('ghost'), padding: '4px 8px' }}>✕</button>
+                  </div>
+                ))}
+                <button style={{ ...s.btn('ghost'), fontSize: 11, padding: '4px 10px' }} onClick={() => setEditVariants(vs => [...vs, { name: '', value: '', stock: 0 }])}>+ Agregar variante</button>
+              </div>
+
+              {/* Activo */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div onClick={() => setEditActive(a => !a)} style={{ width: 36, height: 20, background: editActive ? '#4caf7d' : '#262626', borderRadius: 20, position: 'relative', cursor: 'pointer', border: `1px solid ${editActive ? '#4caf7d' : '#333'}`, transition: 'background 0.2s' }}>
+                  <div style={{ position: 'absolute', width: 14, height: 14, background: editActive ? 'white' : '#555', borderRadius: '50%', top: 2, left: editActive ? 18 : 2, transition: 'left 0.2s' }} />
+                </div>
+                <span style={{ fontSize: 12, color: '#8a8580' }}>{editActive ? 'Activo (visible en tienda)' : 'Inactivo (oculto)'}</span>
+              </div>
+            </div>
+            <div style={{ padding: '14px 20px', borderTop: '1px solid #2a2a2a', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              {editProduct.id && <button onClick={deleteProduct} style={{ ...s.btn('danger'), marginRight: 'auto' }}>Eliminar</button>}
+              <button onClick={() => setModal(false)} style={s.btn('ghost')}>Cancelar</button>
+              <button onClick={saveProduct} disabled={saving || uploading} style={{ ...s.btn('primary'), opacity: saving || uploading ? 0.6 : 1 }}>{saving ? 'Guardando...' : 'Guardar'}</button>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Sofía en números */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="rounded-2xl p-5 md:col-span-1" style={{ background: 'rgba(226,185,111,0.06)', border: '1px solid rgba(226,185,111,0.2)' }}>
-            <p className="text-xs mb-1" style={{ color: 'rgba(226,185,111,0.6)' }}>✦ SOFÍA EN NÚMEROS</p>
-            <p className="text-3xl font-bold mb-1" style={{ color: '#e2b96f' }}>{sofiaConversations}</p>
-            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>conversaciones esta semana</p>
-            <div className="h-px mb-4" style={{ background: 'rgba(226,185,111,0.15)' }} />
-            <p className="text-3xl font-bold mb-1" style={{ color: '#22c55e' }}>{sofiaConverted}</p>
-            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>conversiones asistidas por IA</p>
-            <div className="h-px mb-4" style={{ background: 'rgba(226,185,111,0.15)' }} />
-            <p className="text-3xl font-bold mb-1" style={{ color: '#3b82f6' }}>{sofiaConversionRate}%</p>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>tasa de conversión IA</p>
+      <div style={s.shell}>
+        {/* SIDEBAR */}
+        <div style={s.sidebar}>
+          <div style={{ padding: '20px 18px 16px', borderBottom: '1px solid #2a2a2a' }}>
+            <div style={{ fontSize: 16, fontWeight: 400, letterSpacing: '-0.02em' }}>{config.name || 'Mi Tienda'}</div>
+            <div style={{ fontSize: 10, color: '#555', fontFamily: 'DM Mono, monospace', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Panel admin</div>
           </div>
-
-          <div className="rounded-2xl p-6 md:col-span-2" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Lo que más preguntan</h2>
-            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Objeciones y dudas capturadas por Sofía</p>
-            {topObjections.length === 0 ? (
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún — las objeciones se registran al conversar con Sofía</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {topObjections.map(([text, count]) => (
-                  <span key={text} className="px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5"
-                    style={{ background: 'rgba(226,185,111,0.1)', border: '1px solid rgba(226,185,111,0.2)', color: '#e2b96f' }}>
-                    {text}
-                    <span className="px-1.5 py-0.5 rounded-full text-xs font-bold" style={{ background: 'rgba(226,185,111,0.2)', color: '#e2b96f' }}>{count}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Abandonos + Reporte semanal */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Productos con más abandonos</h2>
-            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Exit intent detectado por página</p>
-            {topExits.length === 0 ? (
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún</p>
-            ) : (
-              <div className="space-y-3">
-                {topExits.map(([slug, count], i) => (
-                  <div key={slug} className="flex items-center gap-3">
-                    <span className="text-xs font-bold w-5" style={{ color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
-                    <p className="flex-1 text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{slug.replace(/-/g, ' ')}</p>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>
-                      {count} salidas
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Resumen semanal de Sofía</h2>
-            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Generado automáticamente por IA</p>
-            {!weeklyReport ? (
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin reporte semanal aún — se genera automáticamente cada lunes</p>
-            ) : (
-              <div className="space-y-3">
-                {weeklyReport.summary_text && (
-                  <p className="text-xs leading-relaxed p-3 rounded-xl" style={{ background: 'rgba(226,185,111,0.06)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(226,185,111,0.1)' }}>
-                    {weeklyReport.summary_text}
-                  </p>
+          <nav style={{ padding: '10px 8px', flex: 1 }}>
+            {SECTIONS.map(item => (
+              <div key={item.id} style={s.nav(section === item.id)} onClick={() => setSection(item.id)}>
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span style={{ background: '#262626', color: '#555', fontSize: 10, padding: '1px 6px', borderRadius: 20, fontFamily: 'DM Mono, monospace' }}>{item.badge}</span>
                 )}
-                {weeklyReport.insights?.slice(0, 3).map((insight, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs">
-                    <span>{insight.type === 'success' ? '✓' : insight.type === 'warning' ? '⚠' : '→'}</span>
-                    <span style={{ color: insight.type === 'success' ? '#22c55e' : insight.type === 'warning' ? '#f59e0b' : '#3b82f6' }}>
-                      {insight.message}
-                    </span>
-                  </div>
-                ))}
               </div>
-            )}
+            ))}
+          </nav>
+          <div style={{ padding: '12px 8px', borderTop: '1px solid #2a2a2a' }}>
+            <a href="/" target="_blank" rel="noreferrer" style={{ ...s.nav(false), textDecoration: 'none', display: 'flex' }}>↗ Ver tienda</a>
+            <div style={s.nav(false)} onClick={handleLogout}>← Cerrar sesión</div>
           </div>
         </div>
 
-        {/* Scroll depth + Idle pages */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Engagement por producto</h2>
-            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Scroll depth promedio — cuánto leen la página</p>
-            {avgScrollByProduct.length === 0 ? (
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún</p>
-            ) : (
-              <div className="space-y-3">
-                {avgScrollByProduct.map(({ slug, avg }) => (
-                  <div key={slug}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span style={{ color: 'rgba(255,255,255,0.7)' }}>{slug.replace(/-/g, ' ')}</span>
-                      <span style={{ color: avg >= 75 ? '#22c55e' : avg >= 50 ? '#f59e0b' : '#f87171' }}>{avg}%</span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${avg}%`, background: avg >= 75 ? '#22c55e' : avg >= 50 ? '#f59e0b' : '#f87171' }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        {/* MAIN */}
+        <div style={s.main}>
+          <div style={s.topbar}>
+            <span style={{ fontSize: 14, fontWeight: 500 }}>{SECTION_TITLE[section]}</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {section === 'products'  && <button style={s.btn('primary')} onClick={openNew}>+ Nuevo producto</button>}
+              {section === 'menu'      && <button style={s.btn('primary')} onClick={saveMenu}>Publicar menú</button>}
+              {section === 'settings'  && <button style={s.btn('primary')} onClick={saveConfig} disabled={configSaving}>{configSaving ? 'Guardando...' : 'Guardar cambios'}</button>}
+            </div>
           </div>
 
-          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Páginas donde se detienen</h2>
-            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Idle detection — visitantes que se quedan sin interactuar</p>
-            {topIdlePages.length === 0 ? (
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos aún</p>
-            ) : (
-              <div className="space-y-3">
-                {topIdlePages.map(([url, count], i) => (
-                  <div key={url} className="flex items-center gap-3">
-                    <span className="text-xs font-bold w-5" style={{ color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
-                    <p className="flex-1 text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{url}</p>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa' }}>
-                      {count}x
-                    </span>
-                  </div>
-                ))}
+          <div style={s.content}>
+
+            {/* ── DASHBOARD ── */}
+            {section === 'dashboard' && (
+              <>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+                  {[
+                    { label: 'Productos',   val: stats.total,  sub: 'en catálogo' },
+                    { label: 'Activos',     val: stats.active, sub: 'publicados' },
+                    { label: 'Categorías',  val: stats.cats,   sub: 'únicas' },
+                    { label: 'Órdenes',     val: stats.orders, sub: 'registradas' },
+                  ].map(st => (
+                    <div key={st.label} style={s.stat}>
+                      <div style={{ fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{st.label}</div>
+                      <div style={{ fontSize: 26, fontWeight: 300, fontFamily: 'DM Mono, monospace' }}>{loading ? '—' : st.val}</div>
+                      <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>{st.sub}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={s.panel}>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Últimos productos</div>
+                  {loading ? <div style={{ color: '#555' }}>Cargando...</div> : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead><tr>{['Producto', 'Categoría', 'Precio', 'Estado', 'Creado'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                      <tbody>
+                        {products.slice(0, 8).map(p => (
+                          <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => { openEdit(p); setSection('products') }}>
+                            <td style={s.td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              {p.images?.[0] ? <img src={p.images[0]} style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', border: '1px solid #2a2a2a' }} /> : <div style={{ width: 34, height: 34, borderRadius: 6, background: '#262626', border: '1px solid #2a2a2a' }} />}
+                              <span style={{ color: '#f0ede8' }}>{p.name}</span>
+                            </div></td>
+                            <td style={s.td}>{p.category || '—'}</td>
+                            <td style={{ ...s.td, fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{fmt(p.price)}</td>
+                            <td style={s.td}><span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 500, background: p.active ? '#1a3025' : '#262626', color: p.active ? '#4caf7d' : '#555' }}>{p.active ? '● Activo' : '○ Inactivo'}</span></td>
+                            <td style={{ ...s.td, fontSize: 11 }}>{ago(p.created_at!)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ── PRODUCTOS ── */}
+            {section === 'products' && (
+              <>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                  <input style={{ ...s.input, flex: 1 }} placeholder="Buscar por nombre o slug..." value={searchQ} onChange={e => setSearchQ(e.target.value)} />
+                  <select style={{ ...s.input, width: 160 }} value={catFilter} onChange={e => setCatFilter(e.target.value)}>
+                    <option value="">Todas las categorías</option>
+                    {[...new Set(products.map(p => p.category).filter(Boolean) as string[])].sort().map(c => <option key={c}>{c}</option>)}
+                  </select>
+                  <select style={{ ...s.input, width: 120 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                    <option value="">Todos</option>
+                    <option value="active">Activos</option>
+                    <option value="inactive">Inactivos</option>
+                  </select>
+                </div>
+                <div style={s.panel}>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Productos ({filteredProducts.length})</div>
+                  {loading ? <div style={{ color: '#555' }}>Cargando...</div> : filteredProducts.length === 0 ? <div style={{ color: '#555' }}>Sin resultados</div> : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead><tr>{['Producto', 'Slug', 'Categoría', 'Precio', 'Variantes', 'Estado', ''].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                      <tbody>
+                        {filteredProducts.map(p => (
+                          <tr key={p.id}>
+                            <td style={s.td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              {p.images?.[0] ? <img src={p.images[0]} style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', border: '1px solid #2a2a2a', flexShrink: 0 }} /> : <div style={{ width: 34, height: 34, borderRadius: 6, background: '#262626', border: '1px solid #2a2a2a', flexShrink: 0 }} />}
+                              <span style={{ color: '#f0ede8' }}>{p.name}</span>
+                            </div></td>
+                            <td style={{ ...s.td, fontFamily: 'DM Mono, monospace', fontSize: 11 }}>{p.slug}</td>
+                            <td style={s.td}>{p.category || '—'}</td>
+                            <td style={{ ...s.td, fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{fmt(p.price)}</td>
+                            <td style={{ ...s.td, fontSize: 11 }}>{p.variants?.length ? p.variants.map(v => v.value || v.name).join(', ') : '—'}</td>
+                            <td style={s.td}><span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 500, background: p.active ? '#1a3025' : '#262626', color: p.active ? '#4caf7d' : '#555' }}>{p.active ? '● Activo' : '○ Inactivo'}</span></td>
+                            <td style={s.td}><button style={{ ...s.btn('ghost'), padding: '4px 10px', fontSize: 11 }} onClick={() => openEdit(p)}>Editar</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ── CATEGORÍAS ── */}
+            {section === 'categories' && (
+              <div style={s.panel}>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Categorías activas</div>
+                <p style={{ fontSize: 11, color: '#555', marginBottom: 16 }}>Derivadas de los productos. Próximamente: gestión completa.</p>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead><tr>{['Categoría', 'Productos', 'Slug'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {Object.entries(products.reduce((acc, p) => { if (p.category) acc[p.category] = (acc[p.category] || 0) + 1; return acc }, {} as Record<string, number>))
+                      .sort((a, b) => b[1] - a[1]).map(([cat, count]) => (
+                        <tr key={cat}>
+                          <td style={{ ...s.td, color: '#f0ede8' }}>{cat}</td>
+                          <td style={{ ...s.td, fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{count}</td>
+                          <td style={{ ...s.td, fontFamily: 'DM Mono, monospace', fontSize: 11 }}>{toSlug(cat)}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Transcripts de conversaciones */}
-        <div className="rounded-2xl p-6 mb-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>Conversaciones recientes con Sofía</h2>
-          <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Últimas {recentConversations.length} conversaciones — haz clic para ver el transcript</p>
-          {recentConversations.length === 0 ? (
-            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin conversaciones aún</p>
-          ) : (
-            <div className="space-y-3">
-              {recentConversations.map((conv: any) => (
-                <details key={conv.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
-                      background: conv.outcome === 'converted' ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.06)',
-                      color: conv.outcome === 'converted' ? '#22c55e' : 'rgba(255,255,255,0.4)'
-                    }}>
-                      {conv.outcome === 'converted' ? '✓ Convertida' : conv.outcome === 'abandoned' ? 'Abandonada' : 'En curso'}
-                    </span>
-                    <span className="text-xs flex-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                      {conv.messages?.length ?? 0} mensajes
-                      {conv.objections?.length > 0 && ` · dudas: ${conv.objections.join(', ')}`}
-                    </span>
-                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                      {new Date(conv.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
-                    </span>
-                  </summary>
-                  <div className="px-4 py-3 space-y-2" style={{ background: 'rgba(0,0,0,0.2)' }}>
-                    {conv.messages?.map((msg: any, i: number) => (
-                      <div key={i} className={`flex gap-2 text-xs ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className="max-w-xs px-3 py-2 rounded-xl" style={{
-                          background: msg.role === 'user' ? 'rgba(226,185,111,0.15)' : 'rgba(255,255,255,0.06)',
-                          color: msg.role === 'user' ? '#e2b96f' : 'rgba(255,255,255,0.7)',
-                        }}>
-                          {msg.content}
+            {/* ── ÓRDENES ── */}
+            {section === 'orders' && (
+              <div style={s.panel}>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Órdenes ({orders.length})</div>
+                {orders.length === 0 ? <div style={{ color: '#555' }}>Sin órdenes aún</div> : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead><tr>{['ID', 'Total', 'Estado', 'Fecha'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {orders.map((o) => (
+                        <tr key={o.id as string}>
+                          <td style={{ ...s.td, fontFamily: 'DM Mono, monospace', fontSize: 11 }}>{(o.id as string)?.slice(0, 8)}...</td>
+                          <td style={{ ...s.td, fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{fmt(Number(o.total || 0))}</td>
+                          <td style={s.td}><span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, background: o.status === 'completed' ? '#1a3025' : '#262620', color: o.status === 'completed' ? '#4caf7d' : '#d4a843' }}>{o.status as string || '—'}</span></td>
+                          <td style={{ ...s.td, fontSize: 11 }}>{ago(o.created_at as string)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+
+            {/* ── MENÚ ── */}
+            {section === 'menu' && (
+              <div style={s.panel}>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Ítems del menú</div>
+                <p style={{ fontSize: 11, color: '#555', marginBottom: 16 }}>Edita el menú de navegación de tu tienda.</p>
+                {menuItems.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: item.parent ? '#1a1a1a' : '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 8, marginBottom: 6, marginLeft: item.parent ? 24 : 0 }}>
+                    {item.parent && <span style={{ fontSize: 11, color: '#555' }}>↳</span>}
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    <span style={{ fontSize: 11, color: '#555', fontFamily: 'DM Mono, monospace', marginRight: 8 }}>{item.url}</span>
+                    <button onClick={() => setMenuItems(ms => ms.filter((_, j) => j !== i))} style={{ ...s.btn('ghost'), padding: '3px 8px', fontSize: 11 }}>✕</button>
+                  </div>
+                ))}
+                <div style={{ marginTop: 16, borderTop: '1px solid #2a2a2a', paddingTop: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 10 }}>Agregar ítem</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
+                    <input style={s.input} placeholder="Etiqueta (ej. Ofertas)" id="mi-label" />
+                    <input style={s.input} placeholder="URL (ej. /ofertas)" id="mi-url" />
+                    <select style={s.input} id="mi-parent">
+                      <option value="">Nivel raíz</option>
+                      {menuItems.filter(m => !m.parent).map(m => <option key={m.label}>{m.label}</option>)}
+                    </select>
+                  </div>
+                  <button style={s.btn('ghost')} onClick={() => {
+                    const label = (document.getElementById('mi-label') as HTMLInputElement).value.trim()
+                    const url   = (document.getElementById('mi-url')   as HTMLInputElement).value.trim()
+                    const parent = (document.getElementById('mi-parent') as HTMLSelectElement).value
+                    if (!label || !url) { show('Completa etiqueta y URL', 'error'); return }
+                    setMenuItems(ms => [...ms, { label, url, parent }])
+                    ;(document.getElementById('mi-label') as HTMLInputElement).value = ''
+                    ;(document.getElementById('mi-url')   as HTMLInputElement).value = ''
+                  }}>+ Agregar</button>
+                </div>
+              </div>
+            )}
+
+            {/* ── CONFIGURACIÓN ── */}
+            {section === 'settings' && (
+              <div style={{ maxWidth: 560 }}>
+                {/* Logo */}
+                <div style={{ ...s.panel, display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: 10, border: '1px solid #2a2a2a', background: '#1e1e1e', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {config.logo_url ? <img src={config.logo_url} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} /> : <span style={{ color: '#333', fontSize: 24 }}>✦</span>}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Logo</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button style={s.btn('ghost')} onClick={() => logoInputRef.current?.click()} disabled={logoUploading}>{logoUploading ? 'Subiendo...' : 'Subir logo'}</button>
+                      {config.logo_url && <button style={s.btn('danger')} onClick={() => setConfig(c => ({ ...c, logo_url: '' }))}>Quitar</button>}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#555', marginTop: 6 }}>PNG, SVG o WebP · Máx 2 MB</div>
+                  </div>
+                </div>
+
+                {/* Campos */}
+                <div style={s.panel}>
+                  <div style={{ display: 'grid', gap: 14 }}>
+                    {([
+                      { key: 'name',      label: 'Nombre de la tienda', placeholder: 'Mi Tienda' },
+                      { key: 'tagline',   label: 'Slogan',              placeholder: 'Tu tienda online' },
+                      { key: 'email',     label: 'Email de contacto',   placeholder: 'hola@mitienda.cl' },
+                      { key: 'phone',     label: 'Teléfono',            placeholder: '+56 9 1234 5678' },
+                      { key: 'instagram', label: 'Instagram (URL)',      placeholder: 'https://instagram.com/mitienda' },
+                      { key: 'whatsapp',  label: 'WhatsApp (número)',   placeholder: '+56912345678' },
+                    ] as const).map(({ key, label, placeholder }) => (
+                      <div key={key}>
+                        <label style={s.label}>{label}</label>
+                        <input style={s.input} placeholder={placeholder} value={config[key]} onChange={e => setConfig(c => ({ ...c, [key]: e.target.value }))} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Colores */}
+                <div style={s.panel}>
+                  <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 14 }}>Colores</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    {([
+                      { key: 'primary_color', label: 'Color principal' },
+                      { key: 'accent_color',  label: 'Color acento' },
+                    ] as const).map(({ key, label }) => (
+                      <div key={key}>
+                        <label style={s.label}>{label}</label>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <input type="color" value={config[key]} onChange={e => setConfig(c => ({ ...c, [key]: e.target.value }))}
+                            style={{ width: 40, height: 36, borderRadius: 8, border: '1px solid #2a2a2a', background: 'none', cursor: 'pointer', padding: 2 }} />
+                          <input style={{ ...s.input, fontFamily: 'DM Mono, monospace', fontSize: 12 }} value={config[key]} onChange={e => setConfig(c => ({ ...c, [key]: e.target.value }))} />
                         </div>
                       </div>
                     ))}
                   </div>
-                </details>
-              ))}
-            </div>
-          )}
-        </div>
+                  {/* Preview */}
+                  <div style={{ marginTop: 14, padding: '12px 16px', borderRadius: 10, background: config.primary_color, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {config.logo_url
+                      ? <img src={config.logo_url} style={{ height: 28, objectFit: 'contain', maxWidth: 100 }} />
+                      : <span style={{ fontWeight: 600, color: 'white', fontSize: 15 }}>{config.name || 'Mi Tienda'}<span style={{ color: config.accent_color }}>.</span></span>
+                    }
+                    <span style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 500, background: config.accent_color, color: config.primary_color }}>Ver colección →</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
-        {/* Sesiones recientes */}
-        <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <h2 className="text-sm font-semibold mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>Sesiones recientes</h2>
-          {recentSessions.length === 0 ? (
-            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin sesiones aún — navega la tienda para generar datos</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr style={{ color: 'rgba(255,255,255,0.3)' }}>
-                    {['Visitor ID', 'Intención', 'Score', 'Duración', 'Convertido', 'Inicio'].map(h => (
-                      <th key={h} className="text-left pb-3 font-medium">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentSessions.map(s => {
-                    const duration = s.ended_at
-                      ? Math.round((new Date(s.ended_at).getTime() - new Date(s.started_at).getTime()) / 1000)
-                      : null
-                    const durationLabel = duration !== null
-                      ? duration >= 60 ? `${Math.floor(duration / 60)}m ${duration % 60}s` : `${duration}s`
-                      : '—'
-                    return (
-                      <tr key={s.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                        <td className="py-3 font-mono" style={{ color: 'rgba(255,255,255,0.5)' }}>{s.visitor_id?.slice(0, 8)}...</td>
-                        <td className="py-3">
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: `${INTENT_COLORS[s.intent_type] ?? '#94a3b8'}22`, color: INTENT_COLORS[s.intent_type] ?? '#94a3b8' }}>
-                            {INTENT_LABELS[s.intent_type] ?? s.intent_type}
-                          </span>
-                        </td>
-                        <td className="py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                              <div className="h-full rounded-full" style={{ width: `${s.intent_score ?? 0}%`, background: INTENT_COLORS[s.intent_type] ?? '#94a3b8' }} />
-                            </div>
-                            <span style={{ color: 'rgba(255,255,255,0.6)' }}>{s.intent_score ?? 0}</span>
-                          </div>
-                        </td>
-                        <td className="py-3" style={{ color: 'rgba(255,255,255,0.5)' }}>{durationLabel}</td>
-                        <td className="py-3" style={{ color: s.converted ? '#22c55e' : 'rgba(255,255,255,0.3)' }}>{s.converted ? '✓ Sí' : '— No'}</td>
-                        <td className="py-3" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                          {new Date(s.started_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          </div>
         </div>
-
       </div>
-    </div>
+    </>
   )
 }
