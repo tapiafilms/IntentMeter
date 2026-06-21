@@ -25,6 +25,7 @@ type Product = {
 }
 type Variant  = { name: string; value: string; stock: number }
 type MenuItem  = { label: string; url: string; parent: string }
+type Category  = { id?: string; name: string; slug: string; image_url: string; sort_order: number; active: boolean }
 type AnalyticsData = {
   sessions: any[]
   events: any[]
@@ -131,6 +132,14 @@ export default function AdminPage() {
   // Menú
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
 
+  // Categorías
+  const [categories, setCategories] = useState<Category[]>([])
+  const [catModal, setCatModal] = useState(false)
+  const [editCat, setEditCat] = useState<Partial<Category>>({})
+  const [catUploading, setCatUploading] = useState(false)
+  const [catSaving, setCatSaving] = useState(false)
+  const catImgRef = useRef<HTMLInputElement>(null)
+
   // Analytics
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
@@ -164,6 +173,11 @@ export default function AdminPage() {
     setMenuItems((data || []) as MenuItem[])
   }, [])
 
+  const loadCategories = useCallback(async () => {
+    const { data } = await supabase.from('categories').select('*').eq('tenant_id', TENANT_ID).order('sort_order', { ascending: true })
+    setCategories((data || []) as Category[])
+  }, [])
+
   const loadAnalytics = useCallback(async () => {
     if (analytics) return
     setAnalyticsLoading(true)
@@ -181,6 +195,7 @@ export default function AdminPage() {
 
   useEffect(() => { loadProducts() }, [loadProducts])
   useEffect(() => {
+    if (section === 'categories') loadCategories()
     if (section === 'orders'    && orders.length === 0) loadOrders()
     if (section === 'menu'      && menuItems.length === 0) loadMenu()
     if (section === 'analytics') loadAnalytics()
@@ -257,6 +272,68 @@ export default function AdminPage() {
     show('Producto eliminado', ''); setModal(false); loadProducts()
   }
 
+  // ── Categorías ────────────────────────────────────────────────
+  function openNewCat() { setEditCat({ name: '', slug: '', image_url: '', sort_order: categories.length, active: true }); setCatModal(true) }
+  function openEditCat(cat: Category) { setEditCat(cat); setCatModal(true) }
+
+  async function uploadCatImage(file: File) {
+    setCatUploading(true)
+    try {
+      const compressed = await compressImage(file, 800, 0.85)
+      const filename = `categorias/${Date.now()}-${Math.random().toString(36).slice(2)}.webp`
+      const { error } = await supabase.storage.from(BUCKET).upload(filename, compressed, { contentType: 'image/webp', upsert: false })
+      if (error) throw error
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(filename)
+      setEditCat(c => ({ ...c, image_url: data.publicUrl }))
+    } catch (err: any) { show('Error al subir imagen: ' + err.message, 'error') }
+    finally { setCatUploading(false) }
+  }
+
+  async function saveCat() {
+    if (!editCat.name) { show('El nombre es obligatorio', 'error'); return }
+    setCatSaving(true)
+    const payload = {
+      tenant_id: TENANT_ID,
+      name: editCat.name,
+      slug: editCat.slug || toSlug(editCat.name!),
+      image_url: editCat.image_url || '',
+      sort_order: editCat.sort_order ?? categories.length,
+      active: editCat.active ?? true,
+    }
+    let error
+    if (editCat.id) {
+      ;({ error } = await supabase.from('categories').update(payload).eq('id', editCat.id))
+    } else {
+      ;({ error } = await supabase.from('categories').insert(payload))
+    }
+    setCatSaving(false)
+    if (error) { show('Error: ' + error.message, 'error'); return }
+    show(editCat.id ? 'Categoría actualizada ✓' : 'Categoría creada ✓', 'success')
+    setCatModal(false)
+    loadCategories()
+    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: null }) }).catch(() => {})
+  }
+
+  async function deleteCat() {
+    if (!editCat.id || !confirm('¿Eliminar esta categoría?')) return
+    const { error } = await supabase.from('categories').delete().eq('id', editCat.id)
+    if (error) { show('Error: ' + error.message, 'error'); return }
+    show('Categoría eliminada', '')
+    setCatModal(false)
+    loadCategories()
+  }
+
+  async function moveCat(id: string, dir: -1 | 1) {
+    const idx = categories.findIndex(c => c.id === id)
+    const newIdx = idx + dir
+    if (newIdx < 0 || newIdx >= categories.length) return
+    const updated = [...categories]
+    ;[updated[idx], updated[newIdx]] = [updated[newIdx], updated[idx]]
+    setCategories(updated)
+    await Promise.all(updated.map((c, i) => supabase.from('categories').update({ sort_order: i }).eq('id', c.id!)))
+    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: null }) }).catch(() => {})
+  }
+
   // ── Menú ──────────────────────────────────────────────────────
   async function saveMenu() {
     await supabase.from('nav_items').delete().eq('tenant_id', TENANT_ID)
@@ -314,6 +391,53 @@ export default function AdminPage() {
 
       <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => handleImageUpload(e.target.files)} />
       <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = '' }} />
+      <input ref={catImgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCatImage(f); e.target.value = '' }} />
+
+      {/* MODAL CATEGORÍA */}
+      {catModal && (
+        <div onClick={e => e.target === e.currentTarget && setCatModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: '#161616', border: '1px solid #333', borderRadius: 12, width: '100%', maxWidth: 480 }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 14, fontWeight: 500 }}>{editCat.id ? 'Editar categoría' : 'Nueva categoría'}</span>
+              <button onClick={() => setCatModal(false)} style={{ ...s.btn('ghost'), padding: '4px 8px' }}>✕</button>
+            </div>
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Imagen */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div onClick={() => catImgRef.current?.click()} style={{ width: 80, height: 80, borderRadius: 10, border: '1.5px dashed #333', background: '#1a1a1a', overflow: 'hidden', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {editCat.image_url ? <img src={editCat.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#444', fontSize: 22 }}>📷</span>}
+                </div>
+                <div>
+                  <button style={s.btn('ghost')} onClick={() => catImgRef.current?.click()} disabled={catUploading}>{catUploading ? 'Subiendo...' : 'Subir imagen'}</button>
+                  <p style={{ fontSize: 10, color: '#555', marginTop: 6 }}>Aparece como fondo en el hero de la tienda</p>
+                </div>
+              </div>
+              {/* Nombre */}
+              <div>
+                <label style={s.label}>Nombre</label>
+                <input style={s.input} placeholder="Ej: Vestidos" value={editCat.name || ''} onChange={e => { const name = e.target.value; setEditCat(c => ({ ...c, name, ...(!c.id ? { slug: toSlug(name) } : {}) })) }} />
+              </div>
+              {/* Slug */}
+              <div>
+                <label style={s.label}>Slug (URL)</label>
+                <input style={s.input} placeholder="vestidos" value={editCat.slug || ''} onChange={e => setEditCat(c => ({ ...c, slug: e.target.value }))} />
+              </div>
+              {/* Activo */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div onClick={() => setEditCat(c => ({ ...c, active: !c.active }))} style={{ width: 36, height: 20, background: editCat.active ? '#4caf7d' : '#262626', borderRadius: 20, position: 'relative', cursor: 'pointer', border: `1px solid ${editCat.active ? '#4caf7d' : '#333'}`, transition: 'background 0.2s' }}>
+                  <div style={{ position: 'absolute', width: 14, height: 14, background: editCat.active ? 'white' : '#555', borderRadius: '50%', top: 2, left: editCat.active ? 18 : 2, transition: 'left 0.2s' }} />
+                </div>
+                <span style={{ fontSize: 12, color: '#8a8580' }}>{editCat.active ? 'Activa (visible en tienda)' : 'Inactiva (oculta)'}</span>
+              </div>
+            </div>
+            <div style={{ padding: '14px 20px', borderTop: '1px solid #2a2a2a', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              {editCat.id && <button onClick={deleteCat} style={{ ...s.btn('danger'), marginRight: 'auto' }}>Eliminar</button>}
+              <button onClick={() => setCatModal(false)} style={s.btn('ghost')}>Cancelar</button>
+              <button onClick={saveCat} disabled={catSaving || catUploading} style={{ ...s.btn('primary'), opacity: catSaving ? 0.6 : 1 }}>{catSaving ? 'Guardando...' : 'Guardar'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL PRODUCTO */}
       {modal && (
@@ -438,7 +562,8 @@ export default function AdminPage() {
           <div style={s.topbar}>
             <span style={{ fontSize: 14, fontWeight: 500 }}>{SECTION_TITLE[section]}</span>
             <div style={{ display: 'flex', gap: 8 }}>
-              {section === 'products'  && <button style={s.btn('primary')} onClick={openNew}>+ Nuevo producto</button>}
+              {section === 'products'   && <button style={s.btn('primary')} onClick={openNew}>+ Nuevo producto</button>}
+              {section === 'categories' && <button style={s.btn('primary')} onClick={openNewCat}>+ Nueva categoría</button>}
               {section === 'menu'      && <button style={s.btn('primary')} onClick={saveMenu}>Publicar menú</button>}
               {section === 'settings'  && <button style={s.btn('primary')} onClick={saveConfig} disabled={configSaving}>{configSaving ? 'Guardando...' : 'Guardar cambios'}</button>}
             </div>
@@ -533,21 +658,46 @@ export default function AdminPage() {
             {/* ── CATEGORÍAS ── */}
             {section === 'categories' && (
               <div style={s.panel}>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Categorías activas</div>
-                <p style={{ fontSize: 11, color: '#555', marginBottom: 16 }}>Derivadas de los productos. Próximamente: gestión completa.</p>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead><tr>{['Categoría', 'Productos', 'Slug'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
-                  <tbody>
-                    {Object.entries(products.reduce((acc, p) => { if (p.category) acc[p.category] = (acc[p.category] || 0) + 1; return acc }, {} as Record<string, number>))
-                      .sort((a, b) => b[1] - a[1]).map(([cat, count]) => (
-                        <tr key={cat}>
-                          <td style={{ ...s.td, color: '#f0ede8' }}>{cat}</td>
-                          <td style={{ ...s.td, fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{count}</td>
-                          <td style={{ ...s.td, fontFamily: 'DM Mono, monospace', fontSize: 11 }}>{toSlug(cat)}</td>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Categorías ({categories.length})</div>
+                <p style={{ fontSize: 11, color: '#555', marginBottom: 16 }}>El orden aquí define el orden en el hero de la tienda. Usa las flechas para reordenar.</p>
+                {categories.length === 0 ? (
+                  <div style={{ color: '#555', padding: '20px 0', textAlign: 'center' }}>
+                    <div style={{ fontSize: 24, marginBottom: 8 }}>◇</div>
+                    <div>Sin categorías aún — crea la primera con el botón de arriba</div>
+                  </div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead><tr>{['', 'Categoría', 'Slug', 'Estado', 'Orden', ''].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {categories.map((cat, i) => (
+                        <tr key={cat.id}>
+                          <td style={{ ...s.td, width: 44 }}>
+                            {cat.image_url
+                              ? <img src={cat.image_url} style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', border: '1px solid #2a2a2a' }} />
+                              : <div style={{ width: 36, height: 36, borderRadius: 6, background: '#262626', border: '1px solid #2a2a2a' }} />
+                            }
+                          </td>
+                          <td style={{ ...s.td, color: '#f0ede8' }}>{cat.name}</td>
+                          <td style={{ ...s.td, fontFamily: 'DM Mono, monospace', fontSize: 11 }}>{cat.slug}</td>
+                          <td style={s.td}>
+                            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 500, background: cat.active ? '#1a3025' : '#262626', color: cat.active ? '#4caf7d' : '#555' }}>
+                              {cat.active ? '● Activa' : '○ Inactiva'}
+                            </span>
+                          </td>
+                          <td style={s.td}>
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              <button onClick={() => moveCat(cat.id!, -1)} disabled={i === 0} style={{ ...s.btn('ghost'), padding: '2px 7px', opacity: i === 0 ? 0.3 : 1 }}>↑</button>
+                              <button onClick={() => moveCat(cat.id!, 1)} disabled={i === categories.length - 1} style={{ ...s.btn('ghost'), padding: '2px 7px', opacity: i === categories.length - 1 ? 0.3 : 1 }}>↓</button>
+                            </div>
+                          </td>
+                          <td style={s.td}>
+                            <button style={{ ...s.btn('ghost'), padding: '4px 10px', fontSize: 11 }} onClick={() => openEditCat(cat)}>Editar</button>
+                          </td>
                         </tr>
                       ))}
-                  </tbody>
-                </table>
+                    </tbody>
+                  </table>
+                )}
               </div>
             )}
 
