@@ -25,18 +25,20 @@ export default async function Navbar() {
     <header
       className="sticky top-0 z-50 border-b"
       style={{
-        background: 'rgba(248,246,242,0.92)',
-        backdropFilter: 'blur(12px)',
-        borderColor: 'var(--color-border)',
+        background: '#fff',
+        borderColor: '#fff',
       }}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="font-display text-xl font-bold tracking-tight flex items-center">
+        <Link href="/" className="font-display text-xl font-bold tracking-tight flex items-center" style={{ position: 'absolute', top: 10, zIndex: 60 }}>
           {store.logo_url
-            ? <img src={store.logo_url} alt={store.name} style={{ height: 36, maxWidth: 140, objectFit: 'contain' }} />
+            ? <img src={store.logo_url} alt={store.name} style={{ height: 100, objectFit: 'contain' }} />
             : <>{store.name}<span style={{ color: 'var(--color-accent)' }}>.</span></>
           }
         </Link>
+
+        {/* Spacer para compensar el logo absolute */}
+        <div style={{ width: 140 }} />
 
         <NavLinks items={rootItems} />
 
@@ -68,6 +70,7 @@ export default async function Navbar() {
           <CartButton />
         </div>
       </div>
+      <img src="/curva.png" alt="" className="absolute left-0 right-0 w-full pointer-events-none" style={{ bottom: 0, transform: 'translateY(100%)', zIndex: 50 }} />
     </header>
   )
 }

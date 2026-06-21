@@ -26,6 +26,7 @@ export interface TenantStoreConfig {
   whatsapp: string
   primary_color: string
   accent_color: string
+  theme: 'light' | 'dark'
 }
 
 export interface TenantConfig {

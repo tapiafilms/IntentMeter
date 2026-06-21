@@ -16,13 +16,21 @@ export default async function StoreLayout({
   const store = getStoreConfig(tenant)
 
   // Hex to RGB helper for CSS vars that need alpha variants
+  const dark = store.theme === 'dark'
   const cssVars = `
     :root {
-      --color-brand: ${store.primary_color};
-      --color-text-primary: ${store.primary_color};
-      --color-text: ${store.primary_color};
-      --color-accent: ${store.accent_color};
+      --color-brand:          ${dark ? '#ffffff' : store.primary_color};
+      --color-text-primary:   ${dark ? '#ffffff' : store.primary_color};
+      --color-text:           ${dark ? '#ffffff' : store.primary_color};
+      --color-accent:         ${store.accent_color};
+      --color-surface:        ${dark ? '#13121e' : '#f8f6f2'};
+      --color-surface-2:      ${dark ? '#1e1c2e' : '#f0ede6'};
+      --color-border:         ${dark ? '#2e2c42' : '#e5e0d8'};
+      --color-text-secondary: ${dark ? '#9895b0' : '#6b6560'};
+      --color-text-muted:     ${dark ? '#5e5c75' : '#9e9890'};
+      --color-cream:          ${dark ? '#13121e' : '#fdfaf5'};
     }
+    body { background-color: var(--color-surface); color: var(--color-text-primary); }
   `
 
   return (

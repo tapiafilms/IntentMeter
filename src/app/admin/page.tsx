@@ -39,12 +39,14 @@ type StoreConfig = {
   name: string; tagline: string; logo_url: string
   email: string; phone: string; instagram: string; whatsapp: string
   primary_color: string; accent_color: string
+  theme: 'light' | 'dark'
 }
 
 const DEFAULT_CONFIG: StoreConfig = {
   name: 'Mi Tienda', tagline: '', logo_url: '', email: '',
   phone: '', instagram: '', whatsapp: '',
   primary_color: '#1a1a2e', accent_color: '#e2b96f',
+  theme: 'light',
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -1019,6 +1021,29 @@ export default function AdminPage() {
                         <label style={s.label}>{label}</label>
                         <input style={s.input} placeholder={placeholder} value={config[key]} onChange={e => setConfig(c => ({ ...c, [key]: e.target.value }))} />
                       </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tema */}
+                <div style={s.panel}>
+                  <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 14 }}>Tema del sitio</div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {(['light', 'dark'] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setConfig(c => ({ ...c, theme: t }))}
+                        style={{
+                          flex: 1, padding: '12px 0', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                          border: config.theme === t ? '2px solid #e2b96f' : '2px solid #2a2a2a',
+                          background: config.theme === t ? '#1f1f1f' : '#181818',
+                          color: config.theme === t ? '#e2b96f' : '#666',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {t === 'light' ? '☀️ Modo claro' : '🌙 Modo oscuro'}
+                      </button>
                     ))}
                   </div>
                 </div>

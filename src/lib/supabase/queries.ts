@@ -17,6 +17,7 @@ export const DEFAULT_STORE_CONFIG: TenantStoreConfig = {
   whatsapp: '',
   primary_color: '#1a1a2e',
   accent_color: '#e2b96f',
+  theme: 'light',
 }
 
 export async function getCategories() {
