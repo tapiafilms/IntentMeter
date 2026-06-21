@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@media (min-width: 48rem) {
+  .md\:px-10 {
+    padding-inline: calc(var(--spacing) * 22);
+  }
+}
+
 :root {
   /* Paleta principal */
   --color-brand:        #1a1a2e;
