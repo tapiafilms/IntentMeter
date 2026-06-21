@@ -103,8 +103,9 @@ export default function HeroCarousel({ products }: { products: Product[] }) {
     <>
     <style>{`
       @keyframes card-enter {
-        from { opacity: 0; transform: translateX(24px); }
-        to   { opacity: 1; transform: translateX(0); }
+        0%   { opacity: 0; transform: scale(0.88) translateY(12px); filter: blur(4px); }
+        60%  { opacity: 1; filter: blur(0px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
       }
       @keyframes arrow-enter {
         from { opacity: 0; transform: scale(0.6); }
@@ -238,7 +239,7 @@ export default function HeroCarousel({ products }: { products: Product[] }) {
                         height: CARD_H,
                         // La card extra que entra desde la derecha aparece con fade+slide
                         animation: pos === CARDS_VISIBLE && isAnimating
-                          ? `card-enter ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards`
+                          ? `card-enter 600ms cubic-bezier(0.34, 1.2, 0.64, 1) ${Math.round(ANIM_MS * 0.3)}ms both`
                           : undefined,
                       }}
                     >
