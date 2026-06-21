@@ -23,8 +23,17 @@ type Product = {
   active: boolean
   created_at?: string
 }
-type Variant = { name: string; value: string; stock: number }
-type MenuItem = { label: string; url: string; parent: string }
+type Variant  = { name: string; value: string; stock: number }
+type MenuItem  = { label: string; url: string; parent: string }
+type AnalyticsData = {
+  sessions: any[]
+  events: any[]
+  conversations: any[]
+  recentConversations: any[]
+  scrollEvents: any[]
+  idleEvents: any[]
+  weeklyReport: any | null
+}
 type StoreConfig = {
   name: string; tagline: string; logo_url: string
   email: string; phone: string; instagram: string; whatsapp: string
@@ -122,6 +131,10 @@ export default function AdminPage() {
   // Menú
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
 
+  // Analytics
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+
   // Configuración
   const [config, setConfig] = useState<StoreConfig>(DEFAULT_CONFIG)
   const [configSaving, setConfigSaving] = useState(false)
@@ -151,6 +164,14 @@ export default function AdminPage() {
     setMenuItems((data || []) as MenuItem[])
   }, [])
 
+  const loadAnalytics = useCallback(async () => {
+    if (analytics) return
+    setAnalyticsLoading(true)
+    const res = await fetch('/api/admin/analytics')
+    if (res.ok) setAnalytics(await res.json())
+    setAnalyticsLoading(false)
+  }, [analytics])
+
   const loadConfig = useCallback(async () => {
     const res = await fetch('/api/admin/settings')
     if (!res.ok) return
@@ -160,8 +181,9 @@ export default function AdminPage() {
 
   useEffect(() => { loadProducts() }, [loadProducts])
   useEffect(() => {
-    if (section === 'orders' && orders.length === 0) loadOrders()
-    if (section === 'menu' && menuItems.length === 0) loadMenu()
+    if (section === 'orders'    && orders.length === 0) loadOrders()
+    if (section === 'menu'      && menuItems.length === 0) loadMenu()
+    if (section === 'analytics') loadAnalytics()
     if (section === 'settings') loadConfig()
   }, [section])
 
@@ -275,11 +297,12 @@ export default function AdminPage() {
     { id: 'products',   label: 'Productos', badge: stats.total },
     { id: 'categories', label: 'Categorías' },
     { id: 'orders',     label: 'Órdenes', badge: stats.orders },
+    { id: 'analytics',  label: 'Analytics IA' },
     { id: 'menu',       label: 'Menú' },
     { id: 'settings',   label: 'Configuración' },
   ]
 
-  const SECTION_TITLE: Record<string, string> = { dashboard: 'Dashboard', products: 'Productos', categories: 'Categorías', orders: 'Órdenes', menu: 'Menú', settings: 'Configuración' }
+  const SECTION_TITLE: Record<string, string> = { dashboard: 'Dashboard', products: 'Productos', categories: 'Categorías', orders: 'Órdenes', analytics: 'Analytics IA', menu: 'Menú', settings: 'Configuración' }
 
   return (
     <>
@@ -549,6 +572,233 @@ export default function AdminPage() {
                 )}
               </div>
             )}
+
+            {/* ── ANALYTICS ── */}
+            {section === 'analytics' && (() => {
+              if (analyticsLoading || !analytics) return <div style={{ color: '#555', padding: 40, textAlign: 'center' }}>Cargando analytics...</div>
+
+              const { sessions, events, conversations, recentConversations, scrollEvents, idleEvents, weeklyReport } = analytics
+              const total = sessions.length
+              const converted = sessions.filter((s: any) => s.converted).length
+              const convRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0'
+              const avgScore = total > 0 ? Math.round(sessions.reduce((sum: number, s: any) => sum + (s.intent_score ?? 0), 0) / total) : 0
+              const withDur = sessions.filter((s: any) => s.ended_at && s.started_at)
+              const avgDurSec = withDur.length > 0 ? Math.round(withDur.reduce((sum: number, s: any) => sum + (new Date(s.ended_at).getTime() - new Date(s.started_at).getTime()) / 1000, 0) / withDur.length) : 0
+              const avgDur = avgDurSec >= 60 ? `${Math.floor(avgDurSec / 60)}m ${avgDurSec % 60}s` : `${avgDurSec}s`
+
+              const intentDist = sessions.reduce((acc: Record<string, number>, s: any) => { acc[s.intent_type ?? 'curious'] = (acc[s.intent_type ?? 'curious'] || 0) + 1; return acc }, {})
+              const INTENT_COLORS: Record<string, string> = { curious: '#94a3b8', undecided: '#f59e0b', comparator: '#3b82f6', price_sensitive: '#8b5cf6', buyer: '#22c55e' }
+              const INTENT_LABELS: Record<string, string> = { curious: 'Curioso', undecided: 'Indeciso', comparator: 'Comparando', price_sensitive: 'Sensible al precio', buyer: 'Listo para comprar' }
+
+              const productViews = events.filter((e: any) => e.type === 'product_view').reduce((acc: Record<string, number>, e: any) => { const slug = e.payload?.slug ?? 'unknown'; acc[slug] = (acc[slug] || 0) + 1; return acc }, {})
+              const topProducts = Object.entries(productViews).sort(([, a], [, b]) => (b as number) - (a as number)).slice(0, 5) as [string, number][]
+
+              const cartAdds    = events.filter((e: any) => e.type === 'add_to_cart').length
+              const cartRemoves = events.filter((e: any) => e.type === 'remove_from_cart').length
+              const exitEvents  = events.filter((e: any) => e.type === 'exit_intent').length
+              const totalViews  = events.filter((e: any) => e.type === 'product_view').length
+
+              const sofiaTotal     = conversations.length
+              const sofiaConverted = conversations.filter((c: any) => c.outcome === 'converted').length
+              const sofiaRate      = sofiaTotal > 0 ? ((sofiaConverted / sofiaTotal) * 100).toFixed(0) : '0'
+
+              const objCounts: Record<string, number> = {}
+              conversations.forEach((c: any) => c.objections?.forEach((o: string) => { objCounts[o] = (objCounts[o] || 0) + 1 }))
+              const topObjections = Object.entries(objCounts).sort(([, a], [, b]) => b - a).slice(0, 8) as [string, number][]
+
+              const topSearches = Object.entries(
+                events.filter((e: any) => e.type === 'search_query').reduce((acc: Record<string, number>, e: any) => { const q = e.payload?.query ?? '?'; acc[q] = (acc[q] || 0) + 1; return acc }, {})
+              ).sort(([, a], [, b]) => (b as number) - (a as number)).slice(0, 8) as [string, number][]
+
+              const funnelMax = total || 1
+              const funnel = [
+                { label: 'Sesiones',          val: total,     color: '#e2b96f' },
+                { label: 'Vistas producto',   val: totalViews, color: '#3b82f6' },
+                { label: 'Add to cart',       val: cartAdds,  color: '#8b5cf6' },
+                { label: 'Conversiones',      val: converted, color: '#22c55e' },
+              ]
+
+              return (
+                <>
+                  {/* KPIs */}
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+                    {[
+                      { label: 'Sesiones', val: total,    sub: 'últimos 7 días', color: '#e2b96f' },
+                      { label: 'Conversiones', val: converted, sub: `${convRate}% tasa`, color: '#22c55e' },
+                      { label: 'Score promedio', val: `${avgScore}/100`, sub: 'intención media', color: '#3b82f6' },
+                      { label: 'Duración media', val: avgDur, sub: `${withDur.length} sesiones`, color: '#f59e0b' },
+                    ].map(k => (
+                      <div key={k.label} style={s.stat}>
+                        <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{k.label}</div>
+                        <div style={{ fontSize: 24, fontWeight: 300, fontFamily: 'DM Mono, monospace', color: k.color }}>{k.val}</div>
+                        <div style={{ fontSize: 10, color: '#555', marginTop: 4 }}>{k.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* KPIs secundarios */}
+                  <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+                    {[
+                      { label: 'Vistas producto', val: totalViews, color: '#60a5fa' },
+                      { label: 'Add to cart',     val: cartAdds,   color: '#a78bfa' },
+                      { label: 'Remove cart',     val: cartRemoves, color: '#f87171' },
+                      { label: 'Exit intents',    val: exitEvents,  color: '#fb923c' },
+                    ].map(k => (
+                      <div key={k.label} style={{ ...s.stat, flex: 'none', minWidth: 120 }}>
+                        <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{k.label}</div>
+                        <div style={{ fontSize: 20, fontWeight: 300, fontFamily: 'DM Mono, monospace', color: k.color }}>{k.val}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                    {/* Funnel */}
+                    <div style={s.panel}>
+                      <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>Funnel de conversión</div>
+                      <p style={{ fontSize: 11, color: '#555', marginBottom: 14 }}>Dónde se cae la gente</p>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 100 }}>
+                        {funnel.map((f, i) => {
+                          const pct = (f.val / funnelMax) * 100
+                          const drop = i > 0 && funnel[i-1].val > 0 ? (((funnel[i-1].val - f.val) / funnel[i-1].val) * 100).toFixed(0) : null
+                          return (
+                            <div key={f.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
+                              {drop && <span style={{ fontSize: 10, color: '#f87171' }}>−{drop}%</span>}
+                              <div style={{ width: '100%', background: '#1e1e1e', borderRadius: 6, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                                <div style={{ width: '100%', background: f.color, opacity: 0.8, height: `${Math.max(pct, 4)}%`, borderRadius: 6 }} />
+                              </div>
+                              <span style={{ fontSize: 14, fontWeight: 300, fontFamily: 'DM Mono, monospace', color: f.color }}>{f.val}</span>
+                              <span style={{ fontSize: 9, color: '#555', textAlign: 'center', letterSpacing: '0.04em' }}>{f.label}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Intención */}
+                    <div style={s.panel}>
+                      <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 14 }}>Distribución de intención</div>
+                      {total === 0 ? <div style={{ color: '#555', fontSize: 12 }}>Sin datos aún</div> : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {Object.entries(intentDist).sort(([, a], [, b]) => (b as number) - (a as number)).map(([type, count]) => (
+                            <div key={type}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+                                <span style={{ color: INTENT_COLORS[type] ?? 'white' }}>{INTENT_LABELS[type] ?? type}</span>
+                                <span style={{ color: '#555' }}>{count as number}</span>
+                              </div>
+                              <div style={{ width: '100%', height: 6, background: '#1e1e1e', borderRadius: 4, overflow: 'hidden' }}>
+                                <div style={{ height: '100%', background: INTENT_COLORS[type] ?? '#94a3b8', width: `${((count as number) / total) * 100}%`, borderRadius: 4 }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                    {/* Top productos */}
+                    <div style={s.panel}>
+                      <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 14 }}>Productos más vistos</div>
+                      {topProducts.length === 0 ? <div style={{ color: '#555', fontSize: 12 }}>Sin datos</div> : topProducts.map(([slug, count], i) => (
+                        <div key={slug} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                          <span style={{ fontSize: 10, color: '#555', width: 14 }}>{i + 1}</span>
+                          <span style={{ flex: 1, fontSize: 12, color: '#f0ede8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slug.replace(/-/g, ' ')}</span>
+                          <span style={{ fontSize: 11, fontFamily: 'DM Mono, monospace', color: '#e2b96f' }}>{count}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Sofía */}
+                    <div style={s.panel}>
+                      <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 14 }}>✦ Sofía en números</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {[
+                          { label: 'Conversaciones', val: sofiaTotal, color: '#e2b96f' },
+                          { label: 'Conversiones asistidas', val: sofiaConverted, color: '#22c55e' },
+                          { label: 'Tasa de conversión IA', val: `${sofiaRate}%`, color: '#3b82f6' },
+                        ].map(k => (
+                          <div key={k.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 11, color: '#555' }}>{k.label}</span>
+                            <span style={{ fontSize: 18, fontWeight: 300, fontFamily: 'DM Mono, monospace', color: k.color }}>{k.val}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {topObjections.length > 0 && (
+                        <>
+                          <div style={{ borderTop: '1px solid #2a2a2a', margin: '14px 0' }} />
+                          <div style={{ fontSize: 11, color: '#555', marginBottom: 8 }}>Objeciones frecuentes</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {topObjections.map(([text, count]) => (
+                              <span key={text} style={{ padding: '3px 8px', borderRadius: 20, fontSize: 10, background: 'rgba(226,185,111,0.08)', border: '1px solid rgba(226,185,111,0.15)', color: '#e2b96f' }}>
+                                {text} <span style={{ opacity: 0.6 }}>·{count}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Búsquedas */}
+                  {topSearches.length > 0 && (
+                    <div style={{ ...s.panel, marginBottom: 16 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 12 }}>Qué buscan los visitantes</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {topSearches.map(([query, count]) => (
+                          <span key={query} style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.15)', color: '#60a5fa' }}>
+                            {query} <span style={{ opacity: 0.6 }}>·{count}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Reporte semanal */}
+                  {weeklyReport && (
+                    <div style={{ ...s.panel, marginBottom: 16 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 12 }}>Resumen semanal de Sofía</div>
+                      {weeklyReport.summary_text && <p style={{ fontSize: 12, color: '#8a8580', lineHeight: 1.6, marginBottom: 12 }}>{weeklyReport.summary_text}</p>}
+                      {weeklyReport.insights?.slice(0, 3).map((ins: any, i: number) => (
+                        <div key={i} style={{ display: 'flex', gap: 8, fontSize: 11, marginBottom: 6 }}>
+                          <span style={{ color: ins.type === 'success' ? '#4caf7d' : ins.type === 'warning' ? '#f59e0b' : '#3b82f6' }}>{ins.type === 'success' ? '✓' : ins.type === 'warning' ? '⚠' : '→'}</span>
+                          <span style={{ color: '#8a8580' }}>{ins.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Conversaciones recientes */}
+                  <div style={s.panel}>
+                    <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>Conversaciones recientes con Sofía</div>
+                    <p style={{ fontSize: 11, color: '#555', marginBottom: 14 }}>Últimas {recentConversations.length} — haz clic para ver el transcript</p>
+                    {recentConversations.length === 0 ? <div style={{ color: '#555', fontSize: 12 }}>Sin conversaciones aún</div> : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {recentConversations.map((conv: any) => (
+                          <details key={conv.id} style={{ border: '1px solid #2a2a2a', borderRadius: 8, overflow: 'hidden' }}>
+                            <summary style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer', background: '#1e1e1e', listStyle: 'none' }}>
+                              <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 500, background: conv.outcome === 'converted' ? '#1a3025' : '#262626', color: conv.outcome === 'converted' ? '#4caf7d' : '#555' }}>
+                                {conv.outcome === 'converted' ? '✓ Convertida' : conv.outcome === 'abandoned' ? 'Abandonada' : 'En curso'}
+                              </span>
+                              <span style={{ flex: 1, fontSize: 11, color: '#555' }}>{conv.messages?.length ?? 0} mensajes{conv.objections?.length > 0 && ` · ${conv.objections.join(', ')}`}</span>
+                              <span style={{ fontSize: 11, color: '#444' }}>{new Date(conv.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                            </summary>
+                            <div style={{ padding: 14, background: '#111', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {conv.messages?.map((msg: any, i: number) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                                  <div style={{ maxWidth: '70%', padding: '6px 10px', borderRadius: 8, fontSize: 11, background: msg.role === 'user' ? 'rgba(226,185,111,0.12)' : '#1e1e1e', color: msg.role === 'user' ? '#e2b96f' : '#8a8580', border: '1px solid #2a2a2a' }}>
+                                    {msg.content}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
 
             {/* ── MENÚ ── */}
             {section === 'menu' && (
