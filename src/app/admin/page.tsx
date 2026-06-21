@@ -236,8 +236,11 @@ export default async function AdminPage() {
           <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>Dashboard de administración — últimos 7 días</p>
         </div>
         <div className="flex items-center gap-3">
+          <a href="/admin/configuracion" className="text-xs px-4 py-2 rounded-full transition-all hover:opacity-80" style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)' }}>
+            ⚙ Configuración
+          </a>
           <a href="/admin/productos" className="text-xs px-4 py-2 rounded-full transition-all hover:opacity-80" style={{ background: 'rgba(226,185,111,0.15)', border: '1px solid rgba(226,185,111,0.3)', color: '#e2b96f' }}>
-            ⚙ Gestionar productos
+            Gestionar productos
           </a>
           <a href="/" className="text-xs px-4 py-2 rounded-full transition-all hover:opacity-80" style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)' }}>
             ← Ver tienda

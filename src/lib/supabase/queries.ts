@@ -3,9 +3,34 @@
 // Funciones de query reutilizables — evita SQL repetido
 // ============================================================
 import { createClient, createStaticClient } from './server'
-import type { Product, Session, Conversation, WeeklyReport } from './types'
+import type { Product, Session, Conversation, WeeklyReport, Tenant, TenantStoreConfig } from './types'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
+
+export const DEFAULT_STORE_CONFIG: TenantStoreConfig = {
+  name: 'Mi Tienda',
+  tagline: 'Tu tienda online',
+  email: '',
+  phone: '',
+  instagram: '',
+  whatsapp: '',
+  primary_color: '#1a1a2e',
+  accent_color: '#e2b96f',
+}
+
+export async function getTenant(): Promise<Tenant | null> {
+  try {
+    const db = await createClient()
+    const { data } = await db.from('tenants').select('*').eq('id', TENANT_ID).single()
+    return data as Tenant | null
+  } catch {
+    return null
+  }
+}
+
+export function getStoreConfig(tenant: Tenant | null): TenantStoreConfig {
+  return { ...DEFAULT_STORE_CONFIG, ...(tenant?.config?.store ?? {}) }
+}
 
 // ── Productos ─────────────────────────────────────────────────
 export async function getProducts(category?: string): Promise<Product[]> {

@@ -16,7 +16,19 @@ export type SessionEventType =
   | 'exit_intent' | 'idle_detected'
 
 // ── Tenant ────────────────────────────────────────────────────
+export interface TenantStoreConfig {
+  name: string
+  tagline: string
+  email: string
+  phone: string
+  instagram: string
+  whatsapp: string
+  primary_color: string
+  accent_color: string
+}
+
 export interface TenantConfig {
+  store: TenantStoreConfig
   widget: {
     tone: 'friendly' | 'formal' | 'playful'
     position: 'bottom-right' | 'bottom-left'

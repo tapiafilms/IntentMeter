@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createStaticClient } from '@/lib/supabase/server'
+import { getTenant, getStoreConfig } from '@/lib/supabase/queries'
 import CartButton from './CartButton'
 import NavLinks from './NavLinks'
 
@@ -16,8 +17,9 @@ async function getNavItems() {
 }
 
 export default async function Navbar() {
-  const navItems = await getNavItems()
+  const [navItems, tenant] = await Promise.all([getNavItems(), getTenant()])
   const rootItems = navItems.filter(i => !i.parent)
+  const store = getStoreConfig(tenant)
 
   return (
     <header
@@ -30,7 +32,7 @@ export default async function Navbar() {
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href="/" className="font-display text-xl font-bold tracking-tight">
-          Tienda<span style={{ color: 'var(--color-accent)' }}>.</span>
+          {store.name}<span style={{ color: 'var(--color-accent)' }}>.</span>
         </Link>
 
         <NavLinks items={rootItems} />

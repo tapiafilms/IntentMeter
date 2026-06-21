@@ -230,7 +230,7 @@ export default function HeroCarousel({ products }: { products: Product[] }) {
                   const isFirst = pos === 0
                   return (
                     <div
-                      key={`${cat.name}-${pos}`}
+                      key={pos === CARDS_VISIBLE ? `${cat.name}-${pos}-${isAnimating ? 'anim' : 'idle'}` : `${cat.name}-${pos}`}
                       ref={isFirst ? firstCardRef : undefined}
                       onClick={isFirst ? advance : undefined}
                       className={['relative rounded-2xl overflow-hidden flex-shrink-0', isFirst ? 'cursor-pointer group' : ''].join(' ')}
