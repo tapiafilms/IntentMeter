@@ -2,27 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import type { Product } from '@/lib/supabase/types'
 
 interface Category {
   name: string
   image: string
   href: string
-}
-
-function buildCategories(products: Product[]): Category[] {
-  const map = new Map<string, string>()
-  for (const p of products) {
-    const cat = p.category ?? 'General'
-    if (!map.has(cat) && p.images?.[0]) {
-      map.set(cat, p.images[0])
-    }
-  }
-  return Array.from(map.entries()).map(([name, image]) => ({
-    name,
-    image,
-    href: `/productos?categoria=${encodeURIComponent(name)}`,
-  }))
 }
 
 const INTERVAL = 5000
@@ -34,8 +18,7 @@ const ANIM_MS = 720
 
 type Phase = 'idle' | 'start' | 'expand'
 
-export default function HeroCarousel({ products }: { products: Product[] }) {
-  const categories = buildCategories(products)
+export default function HeroCarousel({ categories }: { categories: Category[] }) {
   const [active, setActive] = useState(0)
   const [phase, setPhase] = useState<Phase>('idle')
   const [clipPath, setClipPath] = useState<string>('inset(0 0 0 0 round 0px)')

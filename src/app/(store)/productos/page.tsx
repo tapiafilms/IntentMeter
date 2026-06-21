@@ -1,4 +1,4 @@
-import { getProducts } from '@/lib/supabase/queries'
+import { getProducts, getCategories } from '@/lib/supabase/queries'
 import ProductCard from '@/components/store/ProductCard'
 
 export const revalidate = 60 // ISR: revalida cada 60 segundos
@@ -9,11 +9,12 @@ interface Props {
 
 export default async function ProductosPage({ searchParams }: Props) {
   const { categoria } = await searchParams
-  const products = await getProducts(categoria)
+  const [products, dbCategories] = await Promise.all([getProducts(categoria), getCategories()])
 
-  // Categorías únicas para el filtro
-  const allProducts = await getProducts()
-  const categories = [...new Set(allProducts.map(p => p.category).filter(Boolean))] as string[]
+  // Usa categorías de la tabla si existen, si no deriva de productos
+  const categories = dbCategories.length > 0
+    ? dbCategories.map(c => ({ name: c.name, slug: c.slug }))
+    : (await getProducts()).filter(p => p.category).map(p => ({ name: p.category!, slug: p.category! })).filter((c, i, a) => a.findIndex(x => x.slug === c.slug) === i)
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
@@ -42,15 +43,15 @@ export default async function ProductosPage({ searchParams }: Props) {
             </a>
             {categories.map(cat => (
               <a
-                key={cat}
-                href={`/productos?categoria=${encodeURIComponent(cat)}`}
+                key={cat.slug}
+                href={`/productos?categoria=${encodeURIComponent(cat.slug)}`}
                 className="px-4 py-2 rounded-full text-sm font-medium transition-all"
                 style={{
-                  background: categoria === cat ? 'var(--color-brand)' : 'var(--color-surface-2)',
-                  color: categoria === cat ? 'white' : 'var(--color-text-secondary)',
+                  background: categoria === cat.slug ? 'var(--color-brand)' : 'var(--color-surface-2)',
+                  color: categoria === cat.slug ? 'white' : 'var(--color-text-secondary)',
                 }}
               >
-                {cat}
+                {cat.name}
               </a>
             ))}
           </div>

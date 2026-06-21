@@ -1,15 +1,25 @@
 import Link from 'next/link'
 import HeroCarousel from '@/components/store/HeroCarousel'
-import { getProducts } from '@/lib/supabase/queries'
+import { getProducts, getCategories } from '@/lib/supabase/queries'
 import ProductCard from '@/components/store/ProductCard'
 
 export default async function HomePage() {
-  const products = await getProducts()
+  const [products, dbCategories] = await Promise.all([getProducts(), getCategories()])
   const featured = products.slice(0, 4)
+
+  // Si hay categorías en la tabla úsalas, si no deriva de productos como fallback
+  const categories = dbCategories.length > 0
+    ? dbCategories.map(c => ({
+        name: c.name,
+        image: c.image_url,
+        href: `/productos?categoria=${encodeURIComponent(c.slug)}`,
+      }))
+    : [...new Map(products.filter(p => p.category && p.images?.[0]).map(p => [p.category, p])).values()]
+        .map(p => ({ name: p.category!, image: p.images![0], href: `/productos?categoria=${encodeURIComponent(p.category!)}` }))
 
   return (
     <>
-      <HeroCarousel products={products} />
+      <HeroCarousel categories={categories} />
 
       {/* Productos destacados */}
       {featured.length > 0 && (

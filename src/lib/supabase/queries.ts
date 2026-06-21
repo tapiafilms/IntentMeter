@@ -19,6 +19,21 @@ export const DEFAULT_STORE_CONFIG: TenantStoreConfig = {
   accent_color: '#e2b96f',
 }
 
+export async function getCategories() {
+  try {
+    const db = createServiceClient()
+    const { data } = await db
+      .from('categories')
+      .select('id, name, slug, image_url, sort_order')
+      .eq('tenant_id', TENANT_ID)
+      .eq('active', true)
+      .order('sort_order', { ascending: true })
+    return (data || []) as { id: string; name: string; slug: string; image_url: string; sort_order: number }[]
+  } catch {
+    return []
+  }
+}
+
 export async function getTenant(): Promise<Tenant | null> {
   try {
     const db = createServiceClient()
