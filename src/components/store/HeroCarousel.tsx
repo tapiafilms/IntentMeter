@@ -136,6 +136,9 @@ export default function HeroCarousel({ categories }: { categories: Category[] })
         <rect width="100%" height="100%" fill="url(#hc-dots)" />
       </svg>
 
+      {/* ── Oscurecedor uniforme — sobre todo, incluido el overlay de animación */}
+      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 9, background: 'rgba(0,0,0,0.45)' }} />
+
       {/* ── Gradiente izquierda — siempre visible ─────────────── */}
       <div
         className="absolute inset-0 pointer-events-none"
