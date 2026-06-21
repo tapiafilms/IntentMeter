@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import HeroParallax from '@/components/store/HeroParallax'
+import HeroCarousel from '@/components/store/HeroCarousel'
 import { getProducts } from '@/lib/supabase/queries'
 import ProductCard from '@/components/store/ProductCard'
 
@@ -9,72 +9,7 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero con Fondo Azul y Video Sutil (30% Opacidad) */}
-      <section 
-        className="relative h-[66vh] overflow-hidden flex items-center"
-        style={{ backgroundColor: 'var(--color-brand)' }}
-      >
-        {/* Video Background con Opacidad Reducida */}
-        <div className="absolute inset-0 z-0">
-          <HeroParallax />
-          {/* Overlay gradiente animado */}
-          <div
-            className="absolute inset-0 z-10 animate-gradient-color"
-            style={{ mixBlendMode: 'color', opacity: 0.55 }}
-          />
-          {/* Dot grid overlay */}
-          <svg
-            className="absolute inset-0 w-full h-full"
-            xmlns="http://www.w3.org/2000/svg"
-            style={{ zIndex: 11, opacity: 0.54 }}
-          >
-            <defs>
-              <pattern id="dotgrid" x="0" y="0" width="5" height="5" patternUnits="userSpaceOnUse">
-                <circle cx="0.5" cy="0.5" r="0.5" fill="black" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#dotgrid)" />
-          </svg>
-          {/* Overlay suave para integrar mejor el video con el fondo azul */}
-          <div 
-            className="absolute inset-0 z-20" 
-            style={{ background: 'linear-gradient(to bottom, rgba(26,26,46,0.5) 0%, transparent 100%)' }}
-          />
-        </div>
-
-        <div className="relative z-20 max-w-6xl mx-auto px-6 w-full">
-          <div className="max-w-2xl animate-fade-up">
-            <p className="text-sm font-medium tracking-widest mb-6"
-              style={{ color: 'var(--color-accent)', letterSpacing: '0.2em' }}>
-              NUEVA COLECCIÓN
-            </p>
-            <h1 className="font-display text-5xl md:text-7xl font-bold text-white leading-tight mb-6">
-              Piezas que<br />
-              <span style={{ color: 'var(--color-accent)' }}>duran.</span>
-            </h1>
-            <p className="text-lg mb-10" style={{ color: 'rgba(255,255,255,0.95)' }}>
-              Cada prenda seleccionada con cuidado. Diseño atemporal para el día a día.
-            </p>
-            <div className="flex gap-4 flex-wrap">
-              <Link
-                href="/productos"
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-full font-medium text-sm transition-all hover:scale-105"
-                style={{ background: 'var(--color-accent)', color: 'var(--color-brand)' }}
-              >
-                Ver colección
-                <span>→</span>
-              </Link>
-              <Link
-                href="/productos"
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-full font-medium text-sm border transition-all"
-                style={{ borderColor: 'rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.85)' }}
-              >
-                Explorar
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HeroCarousel products={products} />
 
       {/* Productos destacados */}
       {featured.length > 0 && (

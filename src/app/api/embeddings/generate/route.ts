@@ -12,6 +12,10 @@ const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
 
 export async function POST(req: NextRequest) {
   try {
+    const db = await createClient()
+    const { data: { user } } = await db.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { productId, text } = await req.json()
     if (!productId || !text) {
       return NextResponse.json({ error: 'Missing productId or text' }, { status: 400 })
@@ -30,7 +34,6 @@ export async function POST(req: NextRequest) {
     const embedding = Array.from(output.data as Float32Array)
 
     // Guardar en Supabase
-    const db = await createClient()
     const { error } = await db
       .from('products')
       .update({ embedding })

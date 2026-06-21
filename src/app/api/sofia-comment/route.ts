@@ -4,8 +4,12 @@
 // para mostrar en la franja sobre la galería del producto
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, 5, 60_000) // 5 por minuto por IP
+  if (limited) return limited
+
   try {
     const { name, description, category } = await req.json()
     if (!name) return NextResponse.json({ comment: null }, { status: 400 })

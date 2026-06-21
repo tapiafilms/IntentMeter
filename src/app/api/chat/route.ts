@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getProducts } from '@/lib/supabase/queries'
+import { rateLimit } from '@/lib/rate-limit'
 
 interface ChatBody {
   messages: { role: 'user' | 'assistant'; content: string }[]
@@ -13,9 +14,19 @@ interface ChatBody {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, 10, 60_000) // 10 mensajes/min por IP
+  if (limited) return limited
+
   try {
     const body: ChatBody = await req.json()
     const { messages, context } = body
+
+    if (!messages?.length || !context) {
+      return NextResponse.json({ message: 'Solicitud inválida.' }, { status: 400 })
+    }
+    if (messages.length > 30) {
+      return NextResponse.json({ message: 'Demasiados mensajes.' }, { status: 400 })
+    }
 
     const products = await getProducts()
     const catalog = products.map(p => ({
