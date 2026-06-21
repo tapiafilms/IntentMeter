@@ -12,8 +12,11 @@ export default async function Footer() {
     >
       <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
         <div className="col-span-2 md:col-span-1">
-          <Link href="/" className="font-display text-xl font-bold tracking-tight block mb-3">
-            {store.name}<span style={{ color: 'var(--color-accent)' }}>.</span>
+          <Link href="/" className="block mb-3">
+            {store.logo_url
+              ? <img src={store.logo_url} alt={store.name} style={{ height: 32, maxWidth: 120, objectFit: 'contain' }} />
+              : <span className="font-display text-xl font-bold tracking-tight">{store.name}<span style={{ color: 'var(--color-accent)' }}>.</span></span>
+            }
           </Link>
           <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
             {store.tagline}

@@ -10,6 +10,7 @@ const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
 export const DEFAULT_STORE_CONFIG: TenantStoreConfig = {
   name: 'Mi Tienda',
   tagline: 'Tu tienda online',
+  logo_url: '',
   email: '',
   phone: '',
   instagram: '',

@@ -19,6 +19,7 @@ export type SessionEventType =
 export interface TenantStoreConfig {
   name: string
   tagline: string
+  logo_url: string
   email: string
   phone: string
   instagram: string
