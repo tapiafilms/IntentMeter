@@ -123,6 +123,9 @@ export default function AdminPage() {
   const [editImages, setEditImages] = useState<string[]>([])
   const [editVariants, setEditVariants] = useState<Variant[]>([])
   const [editActive, setEditActive] = useState(true)
+  const [editStyle, setEditStyle] = useState<string>('')
+  const [editOccasions, setEditOccasions] = useState<string[]>([])
+  const [editColors, setEditColors] = useState<string[]>([])
   const [newImgUrl, setNewImgUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -220,8 +223,15 @@ export default function AdminPage() {
   }
 
   // ── Productos ─────────────────────────────────────────────────
-  function openNew() { setEditProduct({}); setEditImages([]); setEditVariants([]); setEditActive(true); setModal(true) }
-  function openEdit(p: Product) { setEditProduct(p); setEditImages(p.images || []); setEditVariants(p.variants || []); setEditActive(p.active); setModal(true) }
+  function openNew() { setEditProduct({}); setEditImages([]); setEditVariants([]); setEditActive(true); setEditStyle(''); setEditOccasions([]); setEditColors([]); setModal(true) }
+  function openEdit(p: Product) {
+    const meta = (p.metadata || {}) as Record<string, unknown>
+    setEditProduct(p); setEditImages(p.images || []); setEditVariants(p.variants || []); setEditActive(p.active)
+    setEditStyle((meta.estilo as string) || '')
+    setEditOccasions((meta.ocasion as string[]) || [])
+    setEditColors((meta.colores as string[]) || [])
+    setModal(true)
+  }
 
   async function handleImageUpload(files: FileList | null) {
     if (!files || files.length === 0) return
@@ -245,7 +255,8 @@ export default function AdminPage() {
   async function saveProduct() {
     if (!editProduct.name) { show('El nombre es obligatorio', 'error'); return }
     setSaving(true)
-    const payload = { tenant_id: TENANT_ID, name: editProduct.name, slug: editProduct.slug || toSlug(editProduct.name), price: Number(editProduct.price) || 0, description: editProduct.description || '', category: editProduct.category || '', images: editImages, variants: editVariants, active: editActive }
+    const metadata = { ...(editProduct.metadata || {}), estilo: editStyle || null, ocasion: editOccasions, colores: editColors }
+    const payload = { tenant_id: TENANT_ID, name: editProduct.name, slug: editProduct.slug || toSlug(editProduct.name), price: Number(editProduct.price) || 0, description: editProduct.description || '', category: editProduct.category || '', images: editImages, variants: editVariants, active: editActive, metadata }
     let err, savedId: string | undefined
     if (editProduct.id) {
       ;({ error: err } = await supabase.from('products').update(payload).eq('id', editProduct.id).eq('tenant_id', TENANT_ID))
@@ -517,6 +528,48 @@ export default function AdminPage() {
                   </div>
                 ))}
                 <button style={{ ...s.btn('ghost'), fontSize: 11, padding: '4px 10px' }} onClick={() => setEditVariants(vs => [...vs, { name: '', value: '', stock: 0 }])}>+ Agregar variante</button>
+              </div>
+
+              {/* Personalización */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ ...s.label, marginBottom: 8 }}>Personalización (para recomendaciones)</label>
+
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#8a8580', marginBottom: 6 }}>ESTILO</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {['casual', 'elegante', 'bohemio', 'deportivo'].map(opt => (
+                      <button key={opt} onClick={() => setEditStyle(prev => prev === opt ? '' : opt)}
+                        style={{ padding: '4px 12px', borderRadius: 999, fontSize: 11, cursor: 'pointer', border: `1.5px solid ${editStyle === opt ? '#c9b99a' : '#333'}`, background: editStyle === opt ? '#c9b99a22' : 'transparent', color: editStyle === opt ? '#c9b99a' : '#8a8580', textTransform: 'capitalize' }}>
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#8a8580', marginBottom: 6 }}>OCASIÓN (puede ser varias)</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {[['dia_a_dia', 'Día a día'], ['trabajo', 'Trabajo'], ['salidas', 'Salidas'], ['eventos', 'Eventos']].map(([val, label]) => (
+                      <button key={val} onClick={() => setEditOccasions(prev => prev.includes(val) ? prev.filter(o => o !== val) : [...prev, val])}
+                        style={{ padding: '4px 12px', borderRadius: 999, fontSize: 11, cursor: 'pointer', border: `1.5px solid ${editOccasions.includes(val) ? '#c9b99a' : '#333'}`, background: editOccasions.includes(val) ? '#c9b99a22' : 'transparent', color: editOccasions.includes(val) ? '#c9b99a' : '#8a8580' }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 10, color: '#8a8580', marginBottom: 6 }}>COLORES (puede ser varios)</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {[['neutros', 'Neutros', '#d4c5b0'], ['vivos', 'Vivos', '#e85d4a'], ['pasteles', 'Pasteles', '#f4b8c8'], ['oscuros', 'Oscuros', '#2d1b69']].map(([val, label, swatch]) => (
+                      <button key={val} onClick={() => setEditColors(prev => prev.includes(val) ? prev.filter(c => c !== val) : [...prev, val])}
+                        style={{ padding: '4px 12px', borderRadius: 999, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, border: `1.5px solid ${editColors.includes(val) ? '#c9b99a' : '#333'}`, background: editColors.includes(val) ? '#c9b99a22' : 'transparent', color: editColors.includes(val) ? '#c9b99a' : '#8a8580' }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: swatch, display: 'inline-block', flexShrink: 0 }} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Activo */}
