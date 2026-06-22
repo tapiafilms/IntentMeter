@@ -1,8 +1,13 @@
 import HeroCarousel from '@/components/store/HeroCarousel'
 import FeaturedCarousel from '@/components/store/FeaturedCarousel'
-import { getProducts, getCategories } from '@/lib/supabase/queries'
+import { getProducts, getCategories, getCustomerProfile } from '@/lib/supabase/queries'
+import { createClient } from '@/lib/supabase/server'
+import { personalizeProducts } from '@/lib/personalization/filterProducts'
 
 export default async function HomePage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
   const [products, dbCategories] = await Promise.all([getProducts(), getCategories()])
 
   // Si hay categorías en la tabla úsalas, si no deriva de productos como fallback
@@ -15,11 +20,23 @@ export default async function HomePage() {
     : [...new Map(products.filter(p => p.category && p.images?.[0]).map(p => [p.category, p])).values()]
         .map(p => ({ name: p.category!, image: p.images![0], href: `/productos?categoria=${encodeURIComponent(p.category!)}` }))
 
+  // Personalización: si hay sesión con perfil, reordena productos
+  let customerProfile = null
+  let customerName = null
+  if (user) {
+    customerProfile = await getCustomerProfile(user.id)
+    customerName = customerProfile?.name ?? user.user_metadata?.name ?? null
+  }
+
+  const featuredProducts = customerProfile
+    ? personalizeProducts(products, customerProfile)
+    : products
+
   return (
     <>
       <HeroCarousel categories={categories} />
 
-      <FeaturedCarousel products={products} />
+      <FeaturedCarousel products={featuredProducts} customerName={customerName} />
 
       {/* Banner propuesta de valor */}
       <section style={{ background: 'var(--color-surface-2)' }}>

@@ -11,7 +11,7 @@ function formatPrice(price: number) {
 
 const VISIBLE = 3
 
-export default function FeaturedCarousel({ products }: { products: Product[] }) {
+export default function FeaturedCarousel({ products, customerName }: { products: Product[]; customerName?: string | null }) {
   const [index, setIndex] = useState(0)
   const [dir, setDir] = useState<'next' | 'prev'>('next')
   const [animKey, setAnimKey] = useState(0)
@@ -53,10 +53,10 @@ export default function FeaturedCarousel({ products }: { products: Product[] }) 
           <div>
             <p className="text-xs font-medium tracking-widest mb-2"
               style={{ color: 'var(--color-accent)', letterSpacing: '0.15em' }}>
-              DESTACADOS
+              {customerName ? `HOLA, ${customerName.toUpperCase()} 👋` : 'DESTACADOS'}
             </p>
             <h2 className="font-display text-3xl md:text-4xl font-bold">
-              Lo más nuevo
+              {customerName ? 'Seleccionado para ti' : 'Lo más nuevo'}
             </h2>
           </div>
           <Link
@@ -70,20 +70,18 @@ export default function FeaturedCarousel({ products }: { products: Product[] }) 
 
         {/* Contenedor principal */}
         <div
-          className="flex gap-4 rounded-3xl p-5"
+          className="flex gap-4 rounded-3xl"
           style={{ background: 'var(--color-surface-2)' }}
         >
           {/* Columna izquierda */}
-          <div className="flex flex-col gap-4 flex-shrink-0" style={{ width: 220 }}>
+          <div className="relative flex flex-col flex-shrink-0" style={{ width: 220, gap: 0 }}>
+            <img src="/burbujas.png" alt="" className="absolute w-full h-full object-cover pointer-events-none" style={{ top: 8, left: 36, height: 462, overflow: 'inherit', }} />
 
             {/* Card burbuja1 + burbuja2 */}
             <div
-              className="relative rounded-2xl overflow-hidden flex-1"
-              style={{ minHeight: 260, background: 'var(--color-border)' }}
+              className="relative flex-[3]"
             >
-              <img src="/burbuja1.png" alt="" className="absolute inset-0 w-full h-full object-cover" />
-              <img src="/burbuja2.png" alt="" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ paddingLeft: '55%' }}>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ paddingLeft: '54%', paddingBottom: '54%' }}>
                 <button
                   onClick={() => navigate('next')}
                   className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all hover:scale-110 active:scale-95"
@@ -104,9 +102,8 @@ export default function FeaturedCarousel({ products }: { products: Product[] }) 
             </div>
 
             {/* Card burbuja3 */}
-            <div className="relative rounded-2xl overflow-hidden flex-shrink-0" style={{ height: 200 }}>
-              <img src="/burbuja3.png" alt="" className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute inset-0 p-5 flex flex-col justify-end">
+            <div className="relative flex-[2]">
+              <div className="absolute inset-0 flex flex-col" style={{ paddingLeft: 30, paddingRight: 15,}}>
                 <p className="font-display font-bold text-white text-xl leading-tight mb-2">solo para ti</p>
                 <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
                   Prendas seleccionadas según tus gustos y estilo personal.
@@ -116,7 +113,7 @@ export default function FeaturedCarousel({ products }: { products: Product[] }) 
           </div>
 
           {/* Productos con animación */}
-          <div className="flex-1 grid gap-4" style={{ gridTemplateColumns: `repeat(${VISIBLE}, 1fr)` }}>
+          <div className="flex-1 grid gap-4" style={{ gridTemplateColumns: `repeat(${VISIBLE}, 1fr)`, padding: 20 }}>
             {visible.map((product, i) => (
               <Link
                 key={`${animKey}-${i}`}

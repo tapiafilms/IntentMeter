@@ -187,6 +187,25 @@ export interface WeeklyReport {
   created_at: string
 }
 
+// ── Customer Profile ──────────────────────────────────────────
+export type CustomerStyle    = 'casual' | 'elegante' | 'bohemio' | 'deportivo'
+export type CustomerOccasion = 'dia_a_dia' | 'trabajo' | 'salidas' | 'eventos'
+export type CustomerColor    = 'neutros' | 'vivos' | 'pasteles' | 'oscuros'
+export type CustomerSize     = 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL'
+
+export interface CustomerProfile {
+  id: string
+  user_id: string
+  tenant_id: string
+  name: string
+  style: CustomerStyle | null
+  occasions: CustomerOccasion[]
+  colors: CustomerColor[]
+  size: CustomerSize | null
+  created_at: string
+  updated_at: string
+}
+
 // ── Supabase Database type (para tipado del cliente) ──────────
 export interface Database {
   public: {

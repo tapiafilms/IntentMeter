@@ -3,7 +3,7 @@
 // Funciones de query reutilizables — evita SQL repetido
 // ============================================================
 import { createClient, createStaticClient, createServiceClient } from './server'
-import type { Product, Session, Conversation, WeeklyReport, Tenant, TenantStoreConfig } from './types'
+import type { Product, Session, Conversation, WeeklyReport, Tenant, TenantStoreConfig, CustomerProfile } from './types'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
 
@@ -166,4 +166,29 @@ export async function getTopObjections(days = 7) {
     .sort(([, a], [, b]) => b - a)
     .slice(0, 10)
     .map(([text, count]) => ({ text, count }))
+}
+// ── Customer Profile ──────────────────────────────────────────
+export async function getCustomerProfile(userId: string): Promise<CustomerProfile | null> {
+  const db = await createClient()
+  const { data } = await db
+    .from('customer_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('tenant_id', TENANT_ID)
+    .single()
+  return data as CustomerProfile | null
+}
+
+export async function upsertCustomerProfile(
+  userId: string,
+  profile: Omit<CustomerProfile, 'id' | 'user_id' | 'tenant_id' | 'created_at' | 'updated_at'>
+): Promise<void> {
+  const db = await createClient()
+  const { error } = await db.from('customer_profiles').upsert({
+    user_id: userId,
+    tenant_id: TENANT_ID,
+    updated_at: new Date().toISOString(),
+    ...profile,
+  }, { onConflict: 'user_id,tenant_id' })
+  if (error) throw error
 }

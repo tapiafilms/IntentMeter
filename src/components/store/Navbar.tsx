@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import { createStaticClient } from '@/lib/supabase/server'
-import { getTenant, getStoreConfig } from '@/lib/supabase/queries'
+import { createStaticClient, createClient } from '@/lib/supabase/server'
+import { getTenant, getStoreConfig, getCustomerProfile } from '@/lib/supabase/queries'
 import CartButton from './CartButton'
 import NavLinks from './NavLinks'
+import AccountButton from './AccountButton'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
 
@@ -17,9 +18,18 @@ async function getNavItems() {
 }
 
 export default async function Navbar() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
   const [navItems, tenant] = await Promise.all([getNavItems(), getTenant()])
   const rootItems = navItems.filter(i => !i.parent)
   const store = getStoreConfig(tenant)
+
+  let customerName: string | null = null
+  if (user) {
+    const profile = await getCustomerProfile(user.id)
+    customerName = profile?.name ?? user.user_metadata?.name ?? null
+  }
 
   return (
     <header
@@ -32,7 +42,7 @@ export default async function Navbar() {
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href="/" className="font-display text-xl font-bold tracking-tight flex items-center" style={{ position: 'absolute', top: 10, zIndex: 60 }}>
           {store.logo_url
-            ? <img src={store.logo_url} alt={store.name} style={{ height: 100, objectFit: 'contain' }} />
+            ? <img src={store.logo_url} alt={store.name} style={{ height: 60, objectFit: 'contain' }} />
             : <>{store.name}<span style={{ color: 'var(--color-accent)' }}>.</span></>
           }
         </Link>
@@ -55,6 +65,8 @@ export default async function Navbar() {
             <span style={{ fontSize: '10px' }}>✦</span>
             <span>Asistida con IA — aprovéchala</span>
           </div>
+
+          <AccountButton customerName={customerName} />
 
           <Link
             href="/admin"

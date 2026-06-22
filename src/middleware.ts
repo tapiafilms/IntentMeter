@@ -28,20 +28,37 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname
-  const isLoginPage = path === '/admin/login'
-  const isProductosPage = path.startsWith('/admin/productos')
+  const isAdminLogin   = path === '/admin/login'
+  const isAdminPage    = path.startsWith('/admin/productos')
+  const isPerfilPage   = path === '/cuenta/perfil'
+  const isCuentaLogin  = path === '/cuenta/login'
+  const isCuentaReg    = path === '/cuenta/registro'
 
-  // Sin sesión intentando entrar a /admin/productos → redirige a login
-  if (!user && isProductosPage) {
+  // Admin: sin sesión → redirige a login admin
+  if (!user && isAdminPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/admin/login'
     return NextResponse.redirect(url)
   }
 
-  // Con sesión en login → redirige al panel de productos
-  if (user && isLoginPage) {
+  // Admin: con sesión en login → redirige al panel
+  if (user && isAdminLogin) {
     const url = request.nextUrl.clone()
     url.pathname = '/admin/productos'
+    return NextResponse.redirect(url)
+  }
+
+  // Cuenta: perfil requiere sesión de comprador
+  if (!user && isPerfilPage) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/cuenta/login'
+    return NextResponse.redirect(url)
+  }
+
+  // Cuenta: si ya hay sesión no tiene sentido ir a login/registro
+  if (user && (isCuentaLogin || isCuentaReg)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 
@@ -49,5 +66,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/login', '/admin/productos/:path*'],
+  matcher: [
+    '/admin/login',
+    '/admin/productos/:path*',
+    '/cuenta/login',
+    '/cuenta/registro',
+    '/cuenta/perfil',
+  ],
 }
