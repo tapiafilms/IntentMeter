@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Demasiados mensajes.' }, { status: 400 })
     }
 
-    const products = await getProducts()
-    const catalog = products.map(p => ({
+    const allProducts = await getProducts()
+    const catalog = allProducts.slice(0, 30).map(p => ({
       nombre: p.name,
       slug: p.slug,
       categoria: p.category,

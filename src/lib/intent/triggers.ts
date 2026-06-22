@@ -56,7 +56,7 @@ export function evaluateTrigger(
   }
 
   // R05 — Score alto (buyer) sin checkout
-if (eventType === 'product_view' && intentScore >= 8) {
+  if (eventType === 'product_view' && intentScore >= 65) {
     return {
       shouldOpen: true,
       reason: 'high_intent_buyer',
