@@ -56,7 +56,7 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
               {customerName ? `HOLA, ${customerName.toUpperCase()} 👋` : 'DESTACADOS'}
             </p>
             <h2 className="font-display text-3xl md:text-4xl font-bold">
-              {customerName ? 'Seleccionado para ti' : 'Lo más nuevo'}
+              {customerName ? 'Seleccionado para ti' : 'Lo más destacado'}
             </h2>
           </div>
           <Link
@@ -84,7 +84,7 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
                 <div className="absolute flex flex-col items-center gap-2" style={{ top: '11%', left: 39 }}>
                   <div
                     className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden"
-                    style={{ background: 'var(--color-accent)', boxShadow: '0 2px 10px rgba(0,0,0,0.2)', border: '2px solid white' }}
+                    style={{ background: '#9f28f8', boxShadow: '0 2px 10px rgba(0,0,0,0.2)', border: '2px solid white' }}
                   >
                     {customerAvatar
                       ? <img src={customerAvatar} alt={customerName} className="w-full h-full object-cover" />
@@ -105,10 +105,10 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
               )}
 
               {/* Burbuja2 — botones de navegación */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ paddingLeft: 110, paddingBottom: 40 }}>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none" style={{ paddingLeft: 110, paddingBottom: 40 }}>
                 <button
                   onClick={() => navigate('next')}
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all hover:scale-110 active:scale-95"
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all hover:scale-110 active:scale-95 pointer-events-auto"
                   style={{ background: 'white', color: '#1a1a2e', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
                   aria-label="Siguiente"
                 >
@@ -116,7 +116,7 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
                 </button>
                 <button
                   onClick={() => navigate('prev')}
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all hover:scale-110 active:scale-95"
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all hover:scale-110 active:scale-95 pointer-events-auto"
                   style={{ background: 'white', color: '#1a1a2e', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
                   aria-label="Anterior"
                 >
@@ -128,9 +128,13 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
             {/* Card burbuja3 */}
             <div className="relative flex-[3]">
               <div className="absolute inset-0 flex flex-col" style={{ paddingLeft: 30, paddingRight: 15, paddingTop: 20 }}>
-                <p className="font-display font-bold text-white text-xl leading-tight mb-2">solo para ti</p>
+                <p className="font-display font-bold text-white text-xl leading-tight mb-2">
+                  {customerName ? 'solo para ti' : 'recién llegado'}
+                </p>
                 <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                  Prendas seleccionadas según tus gustos y estilo personal.
+                  {customerName
+                    ? 'Prendas seleccionadas según tus gustos y estilo personal.'
+                    : 'Los últimos productos que acaban de llegar a nuestra tienda.'}
                 </p>
               </div>
             </div>
