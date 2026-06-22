@@ -23,9 +23,11 @@ export default async function HomePage() {
   // Personalización: si hay sesión con perfil, reordena productos
   let customerProfile = null
   let customerName = null
+  let customerAvatar = null
   if (user) {
     customerProfile = await getCustomerProfile(user.id)
     customerName = customerProfile?.name ?? user.user_metadata?.name ?? null
+    customerAvatar = user.user_metadata?.avatar_url ?? null
   }
 
   const featuredProducts = customerProfile
@@ -36,7 +38,7 @@ export default async function HomePage() {
     <>
       <HeroCarousel categories={categories} />
 
-      <FeaturedCarousel products={featuredProducts} customerName={customerName} />
+      <FeaturedCarousel products={featuredProducts} customerName={customerName} customerAvatar={customerAvatar} />
 
       {/* Banner propuesta de valor */}
       <section style={{ background: 'var(--color-surface-2)' }}>
