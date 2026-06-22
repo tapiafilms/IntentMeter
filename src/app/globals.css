@@ -22,7 +22,7 @@
   --color-text: #1a1a2e;
 
   /* Tipografía */
-  --font-display: var(--font-playfair), 'Georgia', serif;
+  --font-display: 'Google Sans', 'Helvetica Neue', sans-serif;
   --font-body:    'Google Sans', 'Helvetica Neue', sans-serif;
 
   /* Espaciado y radios */
