@@ -23,7 +23,7 @@
 
   /* Tipografía */
   --font-display: var(--font-playfair), 'Georgia', serif;
-  --font-body:    var(--font-geist), 'Helvetica Neue', sans-serif;
+  --font-body:    'Google Sans', 'Helvetica Neue', sans-serif;
 
   /* Espaciado y radios */
   --radius-sm:  4px;
