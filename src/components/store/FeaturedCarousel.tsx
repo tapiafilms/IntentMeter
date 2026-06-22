@@ -78,10 +78,10 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
             <img src="/burbujas.png" alt="" className="absolute w-full h-full object-cover pointer-events-none" style={{ top: 8, left: 36, height: 462, overflow: 'inherit', }} />
 
             {/* Card burbuja1 + burbuja2 */}
-            <div className="relative flex-[3]">
+            <div className="relative flex-[2]">
               {/* Burbuja1 — avatar del cliente (arriba izquierda) */}
               {customerName && (
-                <div className="absolute flex flex-col items-center gap-2" style={{ top: '10%', left: 18 }}>
+                <div className="absolute flex flex-col items-center gap-2" style={{ top: '11%', left: 39 }}>
                   <div
                     className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden"
                     style={{ background: 'var(--color-accent)', boxShadow: '0 2px 10px rgba(0,0,0,0.2)', border: '2px solid white' }}
@@ -105,7 +105,7 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
               )}
 
               {/* Burbuja2 — botones de navegación */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ paddingLeft: '54%', paddingBottom: '54%' }}>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ paddingLeft: 110, paddingBottom: 40 }}>
                 <button
                   onClick={() => navigate('next')}
                   className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all hover:scale-110 active:scale-95"
@@ -126,8 +126,8 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
             </div>
 
             {/* Card burbuja3 */}
-            <div className="relative flex-[2]">
-              <div className="absolute inset-0 flex flex-col" style={{ paddingLeft: 30, paddingRight: 15,}}>
+            <div className="relative flex-[3]">
+              <div className="absolute inset-0 flex flex-col" style={{ paddingLeft: 30, paddingRight: 15, paddingTop: 20 }}>
                 <p className="font-display font-bold text-white text-xl leading-tight mb-2">solo para ti</p>
                 <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
                   Prendas seleccionadas según tus gustos y estilo personal.
