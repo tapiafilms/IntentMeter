@@ -166,7 +166,7 @@ export default function HeroCarousel({ categories }: { categories: Category[] })
               pointerEvents: isAnimating ? 'none' : 'auto',
             }}
           >
-            <p className="text-xs font-semibold tracking-widest mb-4" style={{ color: 'var(--color-accent)', letterSpacing: '0.25em' }}>
+            <p className="text-xs font-semibold tracking-widest mb-4" style={{ color: '#9f28f8', letterSpacing: '0.25em' }}>
               {current.name.toUpperCase()}
             </p>
             <h1 className="font-display font-bold text-white leading-tight mb-6" style={{ fontSize: 'clamp(2.5rem, 6vw, 5rem)' }}>
@@ -176,7 +176,7 @@ export default function HeroCarousel({ categories }: { categories: Category[] })
               <Link
                 href={current.href}
                 className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full font-medium text-sm transition-all hover:scale-105"
-                style={{ background: 'var(--color-accent)', color: 'var(--color-brand)' }}
+                style={{ background: '#9f28f8', color: '#ffffff' }}
               >
                 Ver colección →
               </Link>

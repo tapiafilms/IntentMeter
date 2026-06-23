@@ -1,5 +1,6 @@
 import HeroCarousel from '@/components/store/HeroCarousel'
 import FeaturedCarousel from '@/components/store/FeaturedCarousel'
+import ExploreCategoriesSection from '@/components/store/ExploreCategoriesSection'
 import { getProducts, getCategories, getCustomerProfile } from '@/lib/supabase/queries'
 import { createClient } from '@/lib/supabase/server'
 import { personalizeProducts } from '@/lib/personalization/filterProducts'
@@ -39,6 +40,8 @@ export default async function HomePage() {
       <HeroCarousel categories={categories} />
 
       <FeaturedCarousel products={featuredProducts} customerName={customerName} customerAvatar={customerAvatar} />
+
+      <ExploreCategoriesSection />
 
       {/* Banner propuesta de valor */}
       <section style={{ background: 'var(--color-surface-2)' }}>

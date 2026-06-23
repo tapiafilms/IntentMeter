@@ -16,7 +16,7 @@ export const DEFAULT_STORE_CONFIG: TenantStoreConfig = {
   instagram: '',
   whatsapp: '',
   primary_color: '#1a1a2e',
-  accent_color: '#e2b96f',
+  accent_color: '#9f28f8',
   theme: 'light',
 }
 
