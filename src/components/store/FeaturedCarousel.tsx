@@ -71,17 +71,17 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
         {/* Contenedor principal */}
         <div
           className="flex gap-4 rounded-3xl"
-          style={{ background: 'var(--color-surface-2)' }}
+          style={{ background: '#e3dfd7' }}
         >
           {/* Columna izquierda */}
           <div className="relative flex flex-col flex-shrink-0" style={{ width: 220, gap: 0 }}>
-            <img src="/burbujas.png" alt="" className="absolute w-full h-full object-cover pointer-events-none" style={{ top: 8, left: 36, height: 462, overflow: 'inherit', }} />
+            <img src="/burbujas.png" alt="" className="absolute w-full h-full object-cover pointer-events-none" style={{ top: 0, left: 19, height: 470, overflow: 'inherit', }} />
 
             {/* Card burbuja1 + burbuja2 */}
             <div className="relative flex-[2]">
               {/* Burbuja1 — avatar del cliente (arriba izquierda) */}
               {customerName && (
-                <div className="absolute flex flex-col items-center gap-2" style={{ top: '14%', left: 39 }}>
+                <div className="absolute flex flex-col items-center gap-2" style={{ top: '25%', left: 53 }}>
                   <div
                     className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden"
                     style={{ background: '#9f28f8', boxShadow: '0 2px 10px rgba(0,0,0,0.2)', border: '2px solid white' }}
@@ -105,7 +105,7 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
               )}
 
               {/* Burbuja2 — botones de navegación */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none" style={{ paddingLeft: 120, paddingBottom: 40 }}>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none" style={{ paddingLeft: 47, paddingBottom: 0 }}>
                 <button
                   onClick={() => navigate('next')}
                   className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all hover:scale-110 active:scale-95 pointer-events-auto"
@@ -127,11 +127,11 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
 
             {/* Card burbuja3 */}
             <div className="relative flex-[3]">
-              <div className="absolute inset-0 flex flex-col" style={{ paddingLeft: 30, paddingRight: 15, paddingTop: 54 }}>
-                <p className="font-display font-bold text-white text-xl leading-tight mb-2">
+              <div className="absolute inset-0 flex flex-col" style={{ paddingLeft: 0, paddingRight: 15, paddingTop: 54 }}>
+                <p className="font-display font-bold text-white text-xl leading-tight mb-2" style={{ color: 'rgba(158,172,240)', fontWeight: 700, fontSize: 26, }}>
                   {customerName ? 'Solo para ti' : 'Recién llegado'}
                 </p>
-                <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.2, fontWeight: 700, }}>
+                <p className="text-xs leading-relaxed" style={{ color: 'rgba(0,0,0,0.7)', fontSize: 15, lineHeight: 1.2, fontWeight: 700, }}>
                   {customerName
                     ? 'Prendas seleccionadas según tus gustos y estilo personal. Dentro de nuestro closet hay mas de una prenda para ideal para tu closet, asi que sorprendete viendo lo que se fabricó para ti.'
                     : 'Los últimos productos que acaban de llegar a nuestra tienda.'}
@@ -164,6 +164,12 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <span className="text-4xl opacity-20">◇</span>
+                    </div>
+                  )}
+                  {customerName && (
+                    <div className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full"
+                      style={{ background: 'rgba(159,40,248,0.85)', backdropFilter: 'blur(6px)' }}>
+                      <span className="text-white text-xs font-semibold" style={{ letterSpacing: '0.05em' }}>✦ Para ti</span>
                     </div>
                   )}
                   <div

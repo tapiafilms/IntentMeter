@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import AIParticles from './AIParticles'
 
 interface Category {
   name: string
@@ -138,6 +139,12 @@ export default function HeroCarousel({ categories }: { categories: Category[] })
 
       {/* ── Oscurecedor uniforme — sobre todo, incluido el overlay de animación */}
       <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 9, background: 'rgba(0,0,0,0.45)' }} />
+
+      {/* ── Partículas IA */}
+      <AIParticles />
+
+      {/* ── Curva decorativa inferior */}
+      <img src="/curva2.png" alt="" className="absolute bottom-0 left-0 w-full pointer-events-none" style={{ zIndex: 12 }} />
 
       {/* ── Gradiente izquierda — siempre visible ─────────────── */}
       <div

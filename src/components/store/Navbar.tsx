@@ -40,7 +40,7 @@ export default async function Navbar() {
       }}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="font-display text-xl font-bold tracking-tight flex items-center" style={{ position: 'absolute', top: 10, zIndex: 60 }}>
+        <Link href="/" className="font-display text-xl font-bold tracking-tight flex items-center" style={{ position: 'absolute', top: 26, zIndex: 60 }}>
           {store.logo_url
             ? <img src={store.logo_url} alt={store.name} style={{ height: 60, objectFit: 'contain' }} />
             : <>{store.name}<span style={{ color: 'var(--color-accent)' }}>.</span></>
