@@ -77,10 +77,6 @@ export default function AIBanner({ customerName }: { customerName?: string | nul
             </p>
           </div>
 
-          {/* Derecha — propuesta */}
-          <p className="text-xs hidden md:block" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            Potenciado por Inteligencia Artificial · Experiencia personalizada
-          </p>
         </div>
       </div>
     </>

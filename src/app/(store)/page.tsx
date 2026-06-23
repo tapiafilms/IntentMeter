@@ -1,7 +1,6 @@
 import HeroCarousel from '@/components/store/HeroCarousel'
 import FeaturedCarousel from '@/components/store/FeaturedCarousel'
 import ExploreCategoriesSection from '@/components/store/ExploreCategoriesSection'
-import AIBanner from '@/components/store/AIBanner'
 import { getProducts, getCategories, getCustomerProfile } from '@/lib/supabase/queries'
 import { createClient } from '@/lib/supabase/server'
 import { personalizeProducts } from '@/lib/personalization/filterProducts'
@@ -38,9 +37,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <HeroCarousel categories={categories} />
-
-      <AIBanner customerName={customerName} />
+      <HeroCarousel categories={categories} customerName={customerName} />
 
       <FeaturedCarousel products={featuredProducts} customerName={customerName} customerAvatar={customerAvatar} />
 

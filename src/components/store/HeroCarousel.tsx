@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import AIParticles from './AIParticles'
+import AIBanner from './AIBanner'
 
 interface Category {
   name: string
@@ -19,7 +20,7 @@ const ANIM_MS = 720
 
 type Phase = 'idle' | 'start' | 'expand'
 
-export default function HeroCarousel({ categories }: { categories: Category[] }) {
+export default function HeroCarousel({ categories, customerName }: { categories: Category[]; customerName?: string | null }) {
   const [active, setActive] = useState(0)
   const [phase, setPhase] = useState<Phase>('idle')
   const [clipPath, setClipPath] = useState<string>('inset(0 0 0 0 round 0px)')
@@ -142,6 +143,11 @@ export default function HeroCarousel({ categories }: { categories: Category[] })
 
       {/* ── Partículas IA */}
       <AIParticles />
+
+      {/* ── Franja IA — encima del contenido pero debajo de la curva */}
+      <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ zIndex: 11 }}>
+        <AIBanner customerName={customerName} />
+      </div>
 
       {/* ── Curva decorativa inferior */}
       <img src="/curva2.png" alt="" className="absolute bottom-0 left-0 w-full pointer-events-none" style={{ zIndex: 12 }} />
