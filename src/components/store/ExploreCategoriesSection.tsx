@@ -3,43 +3,30 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-const COLLECTIONS = [
-  {
-    name: 'Mujer',
-    href: '/productos?categoria=mujer',
-    image: '/coleccion-mujer.jpg',
-    tags: ['Mujer'],
-  },
-  {
-    name: 'Hombre',
-    href: '/productos?categoria=hombre',
-    image: '/coleccion-hombre.jpg',
-    tags: ['Hombre'],
-  },
-  {
-    name: 'Niños',
-    href: '/productos?categoria=ninos',
-    image: null,
-    tags: ['Niños'],
-  },
-  {
-    name: 'Accesorios',
-    href: '/productos?categoria=accesorios',
-    image: null,
-    tags: ['Accesorios'],
-  },
-  {
-    name: 'Lo Nuevo',
-    href: '/productos?nuevo=true',
-    image: null,
-    tags: ['Nuevos'],
-  },
+export type CollectionItem = {
+  name: string
+  href: string
+  image: string | null
+  tags: string[]
+}
+
+const DEFAULT_COLLECTIONS: CollectionItem[] = [
+  { name: 'Mujer',     href: '/productos?categoria=mujer',      image: '/coleccion-mujer.jpg',  tags: ['Mujer'] },
+  { name: 'Hombre',    href: '/productos?categoria=hombre',     image: '/coleccion-hombre.jpg', tags: ['Hombre'] },
+  { name: 'Niños',     href: '/productos?categoria=ninos',      image: null,                    tags: ['Niños'] },
+  { name: 'Accesorios',href: '/productos?categoria=accesorios', image: null,                    tags: ['Accesorios'] },
+  { name: 'Lo Nuevo',  href: '/productos?nuevo=true',           image: null,                    tags: ['Nuevos'] },
 ]
 
-export default function ExploreCategoriesSection() {
+type Props = {
+  title?: string
+  items?: CollectionItem[]
+}
+
+export default function ExploreCategoriesSection({ title = 'Colecciones', items }: Props) {
   const [hovered, setHovered] = useState<number>(0)
 
-  const displayed = COLLECTIONS
+  const displayed = items && items.length > 0 ? items : DEFAULT_COLLECTIONS
 
   return (
     <>
@@ -204,7 +191,7 @@ export default function ExploreCategoriesSection() {
               COLECCIONES
             </p>
             <h2 className="font-display text-3xl md:text-4xl font-bold">
-              Colecciones
+              {title}
             </h2>
           </div>
         </div>

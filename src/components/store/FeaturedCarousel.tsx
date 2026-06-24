@@ -11,7 +11,7 @@ function formatPrice(price: number) {
 
 const VISIBLE = 3
 
-export default function FeaturedCarousel({ products, customerName, customerAvatar }: { products: Product[]; customerName?: string | null; customerAvatar?: string | null }) {
+export default function FeaturedCarousel({ products, customerName, customerAvatar, sectionTitle, sectionSubtitle }: { products: Product[]; customerName?: string | null; customerAvatar?: string | null; sectionTitle?: string; sectionSubtitle?: string }) {
   const [index, setIndex] = useState(0)
   const [dir, setDir] = useState<'next' | 'prev'>('next')
   const [animKey, setAnimKey] = useState(0)
@@ -53,10 +53,10 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
           <div>
             <p className="text-xs font-medium tracking-widest mb-2"
               style={{ color: '#9f28f8', letterSpacing: '0.15em' }}>
-              {customerName ? `HOLA, ${customerName.toUpperCase()} 👋` : 'DESTACADOS'}
+              {sectionSubtitle ?? (customerName ? `HOLA, ${customerName.toUpperCase()} 👋` : 'DESTACADOS')}
             </p>
             <h2 className="font-display text-3xl md:text-4xl font-bold">
-              {customerName ? 'Seleccionado para ti' : 'Lo más destacado'}
+              {sectionTitle ?? (customerName ? 'Seleccionado para ti' : 'Lo más destacado')}
             </h2>
           </div>
           <Link

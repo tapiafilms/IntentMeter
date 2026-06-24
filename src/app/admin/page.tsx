@@ -42,6 +42,78 @@ type StoreConfig = {
   theme: 'light' | 'dark'
 }
 
+type CollectionItem = { name: string; href: string; image: string; tags: string[] }
+type AccessoryCard  = { title: string; description: string; image: string; size: 'small'|'wide'|'tall'|'large'; color: string; href: string }
+type CustomerPhoto  = { image: string; name: string; bg: string; quote?: string }
+type HomeSection = {
+  id?: string
+  type: 'featured' | 'collections' | 'accessories' | 'customers'
+  enabled: boolean
+  sort_order: number
+  config: {
+    title?: string
+    subtitle?: string
+    description?: string
+    cta_text?: string
+    cta_href?: string
+    items?: unknown[]
+  }
+}
+
+const DEFAULT_SECTIONS: HomeSection[] = [
+  { type: 'featured',    enabled: true, sort_order: 1, config: { title: 'Seleccionado para ti', subtitle: '' } },
+  { type: 'collections', enabled: true, sort_order: 2, config: {
+    title: 'Colecciones',
+    items: [
+      { name: 'Mujer',      href: '/productos?categoria=mujer',      image: '/coleccion-mujer.jpg',  tags: ['Mujer'] },
+      { name: 'Hombre',     href: '/productos?categoria=hombre',     image: '/coleccion-hombre.jpg', tags: ['Hombre'] },
+      { name: 'Niños',      href: '/productos?categoria=ninos',      image: '',                      tags: ['Niños'] },
+      { name: 'Accesorios', href: '/productos?categoria=accesorios', image: '',                      tags: ['Accesorios'] },
+      { name: 'Lo Nuevo',   href: '/productos?nuevo=true',           image: '',                      tags: ['Nuevos'] },
+    ],
+  }},
+  { type: 'accessories', enabled: true, sort_order: 3, config: {
+    title: 'Accesorios',
+    subtitle: 'Complementa tu estilo',
+    items: [
+      { title: 'Carteras',        description: 'Cuero genuino, diseño atemporal', image: '', size: 'large', color: '#2d1b6b', href: '/productos?categoria=carteras' },
+      { title: 'Nueva temporada', description: 'Accesorios que definen el look',  image: '', size: 'tall',  color: '#1a1035', href: '/productos' },
+      { title: '+2.4K',           description: 'Piezas vendidas este mes',        image: '', size: 'small', color: '#3b1fa8', href: '' },
+      { title: '4.9 ★',          description: 'Valoración promedio',              image: '', size: 'small', color: '#4c1d95', href: '' },
+      { title: 'Cinturones',      description: 'El detalle que lo cambia todo',   image: '', size: 'wide',  color: '#5b21b6', href: '/productos?categoria=cinturones' },
+      { title: 'Joyería',         description: 'Piezas únicas',                  image: '', size: 'small', color: '#6b21a8', href: '/productos?categoria=joyeria' },
+      { title: '+23%',            description: 'Crecimiento este trimestre',      image: '', size: 'small', color: '#3730a3', href: '' },
+    ] as AccessoryCard[],
+  }},
+  { type: 'customers', enabled: true, sort_order: 4, config: {
+    title: 'Nuestros clientes',
+    description: 'Miles de personas ya confían en nosotros para encontrar su estilo.',
+    cta_text: 'Ver toda la colección',
+    cta_href: '/productos',
+    items: [
+      { image: '', name: 'María G.',     bg: '#e8d5f5' },
+      { image: '', name: 'Carlos R.',    bg: '#d5e8f5' },
+      { image: '', name: 'Sofía M.',     bg: '#f5e6d5' },
+      { image: '', name: 'Diego P.',     bg: '#d5f5e8' },
+      { image: '', name: 'Valentina L.', bg: '#f5d5ea' },
+      { image: '', name: 'Andrés C.',    bg: '#e8f5d5' },
+    ] as CustomerPhoto[],
+  }},
+]
+
+const SECTION_LABELS: Record<string, string> = {
+  featured:    'Seleccionado para ti',
+  collections: 'Colecciones',
+  accessories: 'Accesorios',
+  customers:   'Nuestros clientes',
+}
+const SECTION_DESC: Record<string, string> = {
+  featured:    'Carrusel de productos destacados o personalizados según el perfil del visitante.',
+  collections: 'Cards expandibles con las colecciones principales de la tienda.',
+  accessories: 'Bento grid de cards con animación de entrada. Ideal para destacar categorías de accesorios.',
+  customers:   'Panel con fotos de clientes en scroll infinito. Genera confianza y prueba social.',
+}
+
 const DEFAULT_CONFIG: StoreConfig = {
   name: 'Mi Tienda', tagline: '', logo_url: '', email: '',
   phone: '', instagram: '', whatsapp: '',
@@ -155,6 +227,14 @@ export default function AdminPage() {
   const [logoUploading, setLogoUploading] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
 
+  // Secciones del home
+  const [homeSections, setHomeSections] = useState<HomeSection[]>(DEFAULT_SECTIONS)
+  const [sectionsSaving, setSectionsSaving] = useState(false)
+  const [expandedSection, setExpandedSection] = useState<string | null>(null)
+  const [itemUploading, setItemUploading] = useState<{ type: string; idx: number } | null>(null)
+  const itemImgRef = useRef<HTMLInputElement>(null)
+  const [itemUploadTarget, setItemUploadTarget] = useState<{ type: string; idx: number } | null>(null)
+
   // ── Load ─────────────────────────────────────────────────────
   const loadProducts = useCallback(async () => {
     setLoading(true)
@@ -198,6 +278,13 @@ export default function AdminPage() {
     if (cfg?.store) setConfig({ ...DEFAULT_CONFIG, ...cfg.store })
   }, [])
 
+  const loadSections = useCallback(async () => {
+    const res = await fetch('/api/admin/sections')
+    if (!res.ok) return
+    const { sections } = await res.json()
+    if (sections && sections.length > 0) setHomeSections(sections)
+  }, [])
+
   useEffect(() => { loadProducts() }, [loadProducts])
   useEffect(() => {
     if (section === 'categories') loadCategories()
@@ -205,6 +292,7 @@ export default function AdminPage() {
     if (section === 'menu'      && menuItems.length === 0) loadMenu()
     if (section === 'analytics') loadAnalytics()
     if (section === 'settings') loadConfig()
+    if (section === 'sections') loadSections()
   }, [section])
 
   useEffect(() => {
@@ -382,17 +470,138 @@ export default function AdminPage() {
   }
 
   // ── Nav ───────────────────────────────────────────────────────
+  async function saveSections() {
+    setSectionsSaving(true)
+    const res = await fetch('/api/admin/sections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sections: homeSections }),
+    })
+    setSectionsSaving(false)
+    if (res.ok) show('Secciones guardadas ✓', 'success')
+    else show('Error al guardar secciones', 'error')
+  }
+
+  function toggleSection(type: string) {
+    setHomeSections(prev => prev.map(s => s.type === type ? { ...s, enabled: !s.enabled } : s))
+  }
+
+  function updateSectionConfig(type: string, patch: Record<string, unknown>) {
+    setHomeSections(prev => prev.map(s => s.type === type ? { ...s, config: { ...s.config, ...patch } } : s))
+  }
+
+  function updateCollectionItem(idx: number, patch: Partial<CollectionItem>) {
+    setHomeSections(prev => prev.map(s => {
+      if (s.type !== 'collections') return s
+      const items = [...(s.config.items ?? [])] as CollectionItem[]
+      items[idx] = { ...items[idx], ...patch }
+      return { ...s, config: { ...s.config, items } }
+    }))
+  }
+
+  function addCollectionItem() {
+    setHomeSections(prev => prev.map(s => {
+      if (s.type !== 'collections') return s
+      const items = [...(s.config.items ?? []), { name: '', href: '', image: '', tags: [] }]
+      return { ...s, config: { ...s.config, items } }
+    }))
+  }
+
+  function removeCollectionItem(idx: number) {
+    setHomeSections(prev => prev.map(s => {
+      if (s.type !== 'collections') return s
+      const items = (s.config.items ?? []).filter((_, i) => i !== idx)
+      return { ...s, config: { ...s.config, items } }
+    }))
+  }
+
+  // Accessories helpers
+  function updateAccessoryItem(idx: number, patch: Partial<AccessoryCard>) {
+    setHomeSections(prev => prev.map(s => {
+      if (s.type !== 'accessories') return s
+      const items = [...(s.config.items ?? [])] as AccessoryCard[]
+      items[idx] = { ...items[idx], ...patch }
+      return { ...s, config: { ...s.config, items } }
+    }))
+  }
+
+  function addAccessoryItem() {
+    setHomeSections(prev => prev.map(s => {
+      if (s.type !== 'accessories') return s
+      const items = [...(s.config.items ?? []) as AccessoryCard[], { title: '', description: '', image: '', size: 'small' as const, color: '#3b1fa8', href: '' }]
+      return { ...s, config: { ...s.config, items } }
+    }))
+  }
+
+  function removeAccessoryItem(idx: number) {
+    setHomeSections(prev => prev.map(s => {
+      if (s.type !== 'accessories') return s
+      const items = (s.config.items as AccessoryCard[] ?? []).filter((_, i) => i !== idx)
+      return { ...s, config: { ...s.config, items } }
+    }))
+  }
+
+  // Customers helpers
+  function updateCustomerPhoto(idx: number, patch: Partial<CustomerPhoto>) {
+    setHomeSections(prev => prev.map(s => {
+      if (s.type !== 'customers') return s
+      const photos = [...(s.config.items ?? [])] as CustomerPhoto[]
+      photos[idx] = { ...photos[idx], ...patch }
+      return { ...s, config: { ...s.config, items: photos } }
+    }))
+  }
+
+  function addCustomerPhoto() {
+    setHomeSections(prev => prev.map(s => {
+      if (s.type !== 'customers') return s
+      const photos = [...(s.config.items ?? []) as CustomerPhoto[], { image: '', name: '', bg: '#e8d5f5' }]
+      return { ...s, config: { ...s.config, items: photos } }
+    }))
+  }
+
+  function removeCustomerPhoto(idx: number) {
+    setHomeSections(prev => prev.map(s => {
+      if (s.type !== 'customers') return s
+      const photos = (s.config.items as CustomerPhoto[] ?? []).filter((_, i) => i !== idx)
+      return { ...s, config: { ...s.config, items: photos } }
+    }))
+  }
+
+  async function uploadItemImage(file: File, sectionType: string, idx: number) {
+    setItemUploading({ type: sectionType, idx })
+    try {
+      const compressed = await compressImage(file, 1000, 0.85)
+      const filename = `secciones/${sectionType}-${Date.now()}-${Math.random().toString(36).slice(2)}.webp`
+      const { error } = await supabase.storage.from(BUCKET).upload(filename, compressed, { contentType: 'image/webp', upsert: false })
+      if (error) throw error
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(filename)
+      // Update the right section + item
+      setHomeSections(prev => prev.map(s => {
+        if (s.type !== sectionType) return s
+        const items = [...(s.config.items ?? [])] as Record<string, unknown>[]
+        items[idx] = { ...items[idx], image: data.publicUrl }
+        return { ...s, config: { ...s.config, items } }
+      }))
+      show('Imagen subida ✓', 'success')
+    } catch (err: any) {
+      show('Error al subir imagen: ' + err.message, 'error')
+    } finally {
+      setItemUploading(null)
+    }
+  }
+
   const SECTIONS: { id: string; label: string; badge?: number }[] = [
     { id: 'dashboard',  label: 'Dashboard' },
     { id: 'products',   label: 'Productos', badge: stats.total },
     { id: 'categories', label: 'Categorías' },
     { id: 'orders',     label: 'Órdenes', badge: stats.orders },
     { id: 'analytics',  label: 'Analytics IA' },
+    { id: 'sections',   label: 'Secciones home' },
     { id: 'menu',       label: 'Menú' },
     { id: 'settings',   label: 'Configuración' },
   ]
 
-  const SECTION_TITLE: Record<string, string> = { dashboard: 'Dashboard', products: 'Productos', categories: 'Categorías', orders: 'Órdenes', analytics: 'Analytics IA', menu: 'Menú', settings: 'Configuración' }
+  const SECTION_TITLE: Record<string, string> = { dashboard: 'Dashboard', products: 'Productos', categories: 'Categorías', orders: 'Órdenes', analytics: 'Analytics IA', sections: 'Secciones home', menu: 'Menú', settings: 'Configuración' }
 
   return (
     <>
@@ -405,6 +614,11 @@ export default function AdminPage() {
       <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => handleImageUpload(e.target.files)} />
       <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = '' }} />
       <input ref={catImgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCatImage(f); e.target.value = '' }} />
+      <input ref={itemImgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+        const f = e.target.files?.[0]
+        if (f && itemUploadTarget) uploadItemImage(f, itemUploadTarget.type, itemUploadTarget.idx)
+        e.target.value = ''
+      }} />
 
       {/* MODAL CATEGORÍA */}
       {catModal && (
@@ -620,6 +834,7 @@ export default function AdminPage() {
               {section === 'products'   && <button style={s.btn('primary')} onClick={openNew}>+ Nuevo producto</button>}
               {section === 'categories' && <button style={s.btn('primary')} onClick={openNewCat}>+ Nueva categoría</button>}
               {section === 'menu'      && <button style={s.btn('primary')} onClick={saveMenu}>Publicar menú</button>}
+              {section === 'sections'  && <button style={s.btn('primary')} onClick={saveSections} disabled={sectionsSaving}>{sectionsSaving ? 'Guardando...' : 'Guardar cambios'}</button>}
               {section === 'settings'  && <button style={s.btn('primary')} onClick={saveConfig} disabled={configSaving}>{configSaving ? 'Guardando...' : 'Guardar cambios'}</button>}
             </div>
           </div>
@@ -1004,6 +1219,288 @@ export default function AdminPage() {
                 </>
               )
             })()}
+
+            {/* ── SECCIONES HOME ── */}
+            {section === 'sections' && (
+              <div style={{ maxWidth: 640 }}>
+                <div style={{ ...s.panel, marginBottom: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Secciones opcionales</div>
+                  <p style={{ fontSize: 11, color: '#555', lineHeight: 1.6 }}>
+                    El hero principal siempre está activo y se alimenta automáticamente con tus categorías.
+                    Activa o desactiva las secciones adicionales y edita su contenido.
+                  </p>
+                </div>
+
+                {homeSections.map(sec => (
+                  <div key={sec.type} style={{ ...s.panel, marginBottom: 12 }}>
+                    {/* Header de la sección */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: expandedSection === sec.type ? 16 : 0 }}>
+                      {/* Toggle */}
+                      <div
+                        onClick={() => toggleSection(sec.type)}
+                        style={{ width: 36, height: 20, background: sec.enabled ? '#4caf7d' : '#262626', borderRadius: 20, position: 'relative', cursor: 'pointer', border: `1px solid ${sec.enabled ? '#4caf7d' : '#333'}`, transition: 'background 0.2s', flexShrink: 0 }}
+                      >
+                        <div style={{ position: 'absolute', width: 14, height: 14, background: sec.enabled ? 'white' : '#555', borderRadius: '50%', top: 2, left: sec.enabled ? 18 : 2, transition: 'left 0.2s' }} />
+                      </div>
+
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: sec.enabled ? '#f0ede8' : '#555' }}>{SECTION_LABELS[sec.type]}</div>
+                        <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>{SECTION_DESC[sec.type]}</div>
+                      </div>
+
+                      <button
+                        onClick={() => setExpandedSection(expandedSection === sec.type ? null : sec.type)}
+                        style={{ ...s.btn('ghost'), padding: '4px 12px', fontSize: 11, opacity: sec.enabled ? 1 : 0.4 }}
+                        disabled={!sec.enabled}
+                      >
+                        {expandedSection === sec.type ? 'Cerrar' : 'Editar'}
+                      </button>
+                    </div>
+
+                    {/* Editor expandible */}
+                    {expandedSection === sec.type && sec.enabled && (
+                      <div style={{ borderTop: '1px solid #2a2a2a', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                        {/* Campos comunes: título */}
+                        <div>
+                          <label style={s.label}>Título de la sección</label>
+                          <input
+                            style={s.input}
+                            value={sec.config.title ?? ''}
+                            placeholder={SECTION_LABELS[sec.type]}
+                            onChange={e => updateSectionConfig(sec.type, { title: e.target.value })}
+                          />
+                        </div>
+
+                        {/* Featured: subtítulo */}
+                        {sec.type === 'featured' && (
+                          <div>
+                            <label style={s.label}>Subtítulo / etiqueta superior</label>
+                            <input
+                              style={s.input}
+                              value={sec.config.subtitle ?? ''}
+                              placeholder="Ej: DESTACADOS (dejar vacío para automático)"
+                              onChange={e => updateSectionConfig(sec.type, { subtitle: e.target.value })}
+                            />
+                            <p style={{ fontSize: 10, color: '#555', marginTop: 6 }}>
+                              Si hay sesión activa, el saludo del usuario toma prioridad automáticamente.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Collections: editor de items */}
+                        {sec.type === 'collections' && (
+                          <div>
+                            <label style={{ ...s.label, marginBottom: 10 }}>Items de la colección</label>
+                            {(sec.config.items as CollectionItem[] ?? []).map((item, idx) => (
+                              <div key={idx} style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr 32px', gap: 6, marginBottom: 8, alignItems: 'end' }}>
+                                {/* Miniatura / upload */}
+                                <div
+                                  onClick={() => { setItemUploadTarget({ type: 'collections', idx }); itemImgRef.current?.click() }}
+                                  style={{ width: 44, height: 44, borderRadius: 8, border: '1.5px dashed #333', background: '#1a1a1a', overflow: 'hidden', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                  title="Subir imagen"
+                                >
+                                  {itemUploading?.type === 'collections' && itemUploading.idx === idx
+                                    ? <span style={{ fontSize: 9, color: '#555' }}>...</span>
+                                    : item.image
+                                      ? <img src={item.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                      : <span style={{ color: '#444', fontSize: 16 }}>📷</span>
+                                  }
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Nombre</div>
+                                  <input style={s.input} placeholder="Mujer" value={item.name}
+                                    onChange={e => updateCollectionItem(idx, { name: e.target.value })} />
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>URL</div>
+                                  <input style={s.input} placeholder="/productos?categoria=mujer" value={item.href}
+                                    onChange={e => updateCollectionItem(idx, { href: e.target.value })} />
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>URL imagen (o sube ↖)</div>
+                                  <input style={s.input} placeholder="/imagen.jpg" value={item.image ?? ''}
+                                    onChange={e => updateCollectionItem(idx, { image: e.target.value })} />
+                                </div>
+                                <button
+                                  onClick={() => removeCollectionItem(idx)}
+                                  style={{ ...s.btn('ghost'), padding: '4px 8px', color: '#e05a5a' }}
+                                >✕</button>
+                              </div>
+                            ))}
+                            <button style={{ ...s.btn('ghost'), fontSize: 11, padding: '4px 10px', marginTop: 4 }} onClick={addCollectionItem}>
+                              + Agregar item
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Accessories: editor de cards */}
+                        {sec.type === 'accessories' && (
+                          <div>
+                            {/* Subtítulo */}
+                            <div style={{ marginBottom: 14 }}>
+                              <label style={s.label}>Subtítulo / etiqueta superior</label>
+                              <input
+                                style={s.input}
+                                value={sec.config.subtitle ?? ''}
+                                placeholder="Ej: COMPLEMENTA TU ESTILO"
+                                onChange={e => updateSectionConfig(sec.type, { subtitle: e.target.value })}
+                              />
+                            </div>
+
+                            <label style={{ ...s.label, marginBottom: 10 }}>Cards del bento grid</label>
+                            <p style={{ fontSize: 10, color: '#555', marginBottom: 12 }}>
+                              Tamaños: <strong style={{ color: '#8a8580' }}>small</strong> 1×1 · <strong style={{ color: '#8a8580' }}>wide</strong> 2×1 · <strong style={{ color: '#8a8580' }}>tall</strong> 1×2 · <strong style={{ color: '#8a8580' }}>large</strong> 2×2
+                            </p>
+                            {(sec.config.items as AccessoryCard[] ?? []).map((card, idx) => (
+                              <div key={idx} style={{ border: '1px solid #2a2a2a', borderRadius: 8, padding: 12, marginBottom: 8, background: '#1a1a1a' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 100px 40px 32px', gap: 6, alignItems: 'end', marginBottom: 8 }}>
+                                  {/* Imagen miniatura / upload */}
+                                  <div
+                                    onClick={() => { setItemUploadTarget({ type: 'accessories', idx }); itemImgRef.current?.click() }}
+                                    style={{ width: 44, height: 44, borderRadius: 8, border: '1.5px dashed #333', background: '#1e1e1e', overflow: 'hidden', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    title="Subir imagen"
+                                  >
+                                    {itemUploading?.type === 'accessories' && itemUploading.idx === idx
+                                      ? <span style={{ fontSize: 9, color: '#555' }}>...</span>
+                                      : card.image
+                                        ? <img src={card.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        : <span style={{ color: '#444', fontSize: 16 }}>📷</span>
+                                    }
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Título</div>
+                                    <input style={s.input} placeholder="Carteras" value={card.title}
+                                      onChange={e => updateAccessoryItem(idx, { title: e.target.value })} />
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Descripción</div>
+                                    <input style={s.input} placeholder="Cuero genuino..." value={card.description}
+                                      onChange={e => updateAccessoryItem(idx, { description: e.target.value })} />
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tamaño</div>
+                                    <select style={s.input} value={card.size} onChange={e => updateAccessoryItem(idx, { size: e.target.value as AccessoryCard['size'] })}>
+                                      <option value="small">small (1×1)</option>
+                                      <option value="wide">wide (2×1)</option>
+                                      <option value="tall">tall (1×2)</option>
+                                      <option value="large">large (2×2)</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Color</div>
+                                    <input type="color" value={card.color || '#3b1fa8'}
+                                      onChange={e => updateAccessoryItem(idx, { color: e.target.value })}
+                                      style={{ width: 40, height: 36, borderRadius: 8, border: '1px solid #2a2a2a', background: 'none', cursor: 'pointer', padding: 2 }} />
+                                  </div>
+                                  <button
+                                    onClick={() => removeAccessoryItem(idx)}
+                                    style={{ ...s.btn('ghost'), padding: '4px 8px', color: '#e05a5a' }}
+                                  >✕</button>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>URL de imagen (o sube ↖) · URL de destino</div>
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                                    <input style={{ ...s.input, fontSize: 11 }} placeholder="https://... o /imagen.jpg" value={card.image ?? ''}
+                                      onChange={e => updateAccessoryItem(idx, { image: e.target.value })} />
+                                    <input style={{ ...s.input, fontSize: 11 }} placeholder="/productos?categoria=..." value={card.href ?? ''}
+                                      onChange={e => updateAccessoryItem(idx, { href: e.target.value })} />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            <button style={{ ...s.btn('ghost'), fontSize: 11, padding: '4px 10px', marginTop: 4 }} onClick={addAccessoryItem}>
+                              + Agregar card
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Customers: editor */}
+                        {sec.type === 'customers' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                              <div>
+                                <label style={s.label}>Descripción</label>
+                                <textarea
+                                  style={{ ...s.input, resize: 'vertical', minHeight: 72 }}
+                                  value={sec.config.description ?? ''}
+                                  placeholder="Miles de personas ya confían en nosotros..."
+                                  onChange={e => updateSectionConfig(sec.type, { description: e.target.value })}
+                                />
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div>
+                                  <label style={s.label}>Texto del botón</label>
+                                  <input style={s.input} value={sec.config.cta_text ?? ''} placeholder="Ver toda la colección"
+                                    onChange={e => updateSectionConfig(sec.type, { cta_text: e.target.value })} />
+                                </div>
+                                <div>
+                                  <label style={s.label}>URL del botón</label>
+                                  <input style={s.input} value={sec.config.cta_href ?? ''} placeholder="/productos"
+                                    onChange={e => updateSectionConfig(sec.type, { cta_href: e.target.value })} />
+                                </div>
+                              </div>
+                            </div>
+                            <div>
+                              <label style={{ ...s.label, marginBottom: 10 }}>Fotos de clientes</label>
+                              <p style={{ fontSize: 10, color: '#555', marginBottom: 10 }}>
+                                Se dividen en 2 columnas automáticamente. Una sube y la otra baja en scroll infinito.
+                              </p>
+                              {(sec.config.items as CustomerPhoto[] ?? []).map((photo, idx) => (
+                                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 40px 32px', gap: 6, marginBottom: 6, alignItems: 'end' }}>
+                                  <div
+                                    onClick={() => { setItemUploadTarget({ type: 'customers', idx }); itemImgRef.current?.click() }}
+                                    style={{ width: 44, height: 44, borderRadius: 8, border: '1.5px dashed #333', background: photo.bg || '#1a1a1a', overflow: 'hidden', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    title="Subir foto"
+                                  >
+                                    {itemUploading?.type === 'customers' && itemUploading.idx === idx
+                                      ? <span style={{ fontSize: 9, color: '#555' }}>...</span>
+                                      : photo.image
+                                        ? <img src={photo.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        : <span style={{ color: '#666', fontSize: 14 }}>👤</span>
+                                    }
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Nombre</div>
+                                    <input style={s.input} placeholder="María G." value={photo.name}
+                                      onChange={e => updateCustomerPhoto(idx, { name: e.target.value })} />
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>URL foto (o sube ↖)</div>
+                                    <input style={s.input} placeholder="https://..." value={photo.image}
+                                      onChange={e => updateCustomerPhoto(idx, { image: e.target.value })} />
+                                  </div>
+                                  <div style={{ gridColumn: '2 / -2', marginTop: 6 }}>
+                                    <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Frase del cliente</div>
+                                    <input style={s.input} placeholder="Me encanta esta tienda porque..." value={photo.quote ?? ''}
+                                      onChange={e => updateCustomerPhoto(idx, { quote: e.target.value })} />
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 9, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Color</div>
+                                    <input type="color" value={photo.bg || '#e8d5f5'}
+                                      onChange={e => updateCustomerPhoto(idx, { bg: e.target.value })}
+                                      style={{ width: 40, height: 36, borderRadius: 8, border: '1px solid #2a2a2a', background: 'none', cursor: 'pointer', padding: 2 }} />
+                                  </div>
+                                  <button onClick={() => removeCustomerPhoto(idx)}
+                                    style={{ ...s.btn('ghost'), padding: '4px 8px', color: '#e05a5a' }}>✕</button>
+                                </div>
+                              ))}
+                              <button style={{ ...s.btn('ghost'), fontSize: 11, padding: '4px 10px', marginTop: 4 }} onClick={addCustomerPhoto}>
+                                + Agregar foto
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                <p style={{ fontSize: 11, color: '#555', marginTop: 8 }}>
+                  Recuerda guardar los cambios con el botón de arriba para que se publiquen en la tienda.
+                </p>
+              </div>
+            )}
 
             {/* ── MENÚ ── */}
             {section === 'menu' && (
