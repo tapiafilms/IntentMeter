@@ -47,15 +47,20 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
         .feat-card-prev { animation: slideInLeft  420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
       `}</style>
 
-      <section className="max-w-6xl mx-auto px-6 py-20">
+      <style>{`
+        .feat-grid { display: grid; gap: 16px; padding: 16px; grid-template-columns: repeat(2, 1fr); }
+        @media (min-width: 768px) { .feat-grid { grid-template-columns: repeat(${VISIBLE}, 1fr); padding: 20px; } }
+      `}</style>
+
+      <section className="max-w-6xl mx-auto px-6 py-12 md:py-20">
         {/* Header */}
-        <div className="flex items-end justify-between mb-10">
+        <div className="flex items-end justify-between mb-8 md:mb-10">
           <div>
             <p className="text-xs font-medium tracking-widest mb-2"
               style={{ color: '#9f28f8', letterSpacing: '0.15em' }}>
               {sectionSubtitle ?? (customerName ? `HOLA, ${customerName.toUpperCase()} 👋` : 'DESTACADOS')}
             </p>
-            <h2 className="font-display text-3xl md:text-4xl font-bold">
+            <h2 className="font-display text-2xl md:text-4xl font-bold">
               {sectionTitle ?? (customerName ? 'Seleccionado para ti' : 'Lo más destacado')}
             </h2>
           </div>
@@ -73,13 +78,12 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
           className="flex gap-4 rounded-3xl"
           style={{ background: '#e3dfd7' }}
         >
-          {/* Columna izquierda */}
-          <div className="relative flex flex-col flex-shrink-0" style={{ width: 220, gap: 0 }}>
+          {/* Columna izquierda — solo en desktop */}
+          <div className="relative md:flex flex-col flex-shrink-0 hidden" style={{ width: 220, gap: 0 }}>
             <img src="/burbujas.png" alt="" className="absolute w-full h-full object-cover pointer-events-none" style={{ top: 0, left: 19, height: 470, overflow: 'inherit', }} />
 
             {/* Card burbuja1 + burbuja2 */}
             <div className="relative flex-[2]">
-              {/* Burbuja1 — avatar del cliente (arriba izquierda) */}
               {customerName && (
                 <div className="absolute flex flex-col items-center gap-2" style={{ top: '25%', left: 53 }}>
                   <div
@@ -104,7 +108,6 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
                 </div>
               )}
 
-              {/* Burbuja2 — botones de navegación */}
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none" style={{ paddingLeft: 47, paddingBottom: 0 }}>
                 <button
                   onClick={() => navigate('next')}
@@ -125,7 +128,6 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
               </div>
             </div>
 
-            {/* Card burbuja3 */}
             <div className="relative flex-[3]">
               <div className="absolute inset-0 flex flex-col" style={{ paddingLeft: 0, paddingRight: 15, paddingTop: 54 }}>
                 <p className="font-display font-bold text-white text-xl leading-tight mb-2" style={{ color: 'rgba(158,172,240)', fontWeight: 700, fontSize: 26, }}>
@@ -140,8 +142,14 @@ export default function FeaturedCarousel({ products, customerName, customerAvata
             </div>
           </div>
 
+          {/* Navegación mobile — solo visible cuando la columna izq está oculta */}
+          <div className="flex md:hidden items-center justify-between px-4 pt-4 w-full absolute top-0 left-0 pointer-events-none" style={{ zIndex: 1 }}>
+            <button onClick={() => navigate('prev')} className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold pointer-events-auto" style={{ background: 'rgba(0,0,0,0.12)', color: '#1a1a2e' }} aria-label="Anterior">←</button>
+            <button onClick={() => navigate('next')} className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold pointer-events-auto" style={{ background: 'rgba(0,0,0,0.12)', color: '#1a1a2e' }} aria-label="Siguiente">→</button>
+          </div>
+
           {/* Productos con animación */}
-          <div className="flex-1 grid gap-4" style={{ gridTemplateColumns: `repeat(${VISIBLE}, 1fr)`, padding: 20 }}>
+          <div className="feat-grid flex-1 relative">
             {visible.map((product, i) => (
               <Link
                 key={`${animKey}-${i}`}

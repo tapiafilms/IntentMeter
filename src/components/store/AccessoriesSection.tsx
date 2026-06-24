@@ -150,6 +150,8 @@ export default function AccessoriesSection({ title = 'Accesorios', subtitle, ite
           transition: background 0.2s;
         }
         .acc-link:hover { background: rgba(255,255,255,0.25); }
+        .acc-grid { display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: auto; grid-auto-flow: row dense; gap: 10px; }
+        @media (min-width: 640px) { .acc-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; } }
       `}</style>
 
       <section ref={sectionRef} className="max-w-6xl mx-auto px-6 pb-20">
@@ -163,13 +165,7 @@ export default function AccessoriesSection({ title = 'Accesorios', subtitle, ite
         </div>
 
         {/* Bento grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gridAutoRows: 'auto',
-          gridAutoFlow: 'row dense',
-          gap: 12,
-        }}>
+        <div className="acc-grid">
           {cards.map((card, i) => {
             const delay = i * 0.07
 

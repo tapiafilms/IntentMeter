@@ -206,23 +206,27 @@ export default function CustomersSection({
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        .customers-grid { display: grid; grid-template-columns: 1fr 1fr; }
+        .customers-left { padding: 36px 28px; }
+        .customers-right { height: 460px; }
+        @media (max-width: 639px) {
+          .customers-grid { grid-template-columns: 1fr; }
+          .customers-left { padding: 32px 24px; }
+          .customers-right { height: 300px; }
+        }
       `}</style>
 
       <section className="max-w-6xl mx-auto px-6 pb-20">
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
+        <div className="customers-grid" style={{
           borderRadius: 28,
           overflow: 'hidden',
-          minHeight: 460,
           backgroundImage: 'url(/bg-clients.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}>
 
           {/* Panel izquierdo */}
-          <div style={{
-            padding: '56px 48px',
+          <div className="customers-left" style={{
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
@@ -282,11 +286,10 @@ export default function CustomersSection({
           </div>
 
           {/* Panel derecho: columnas de fotos */}
-          <div style={{
+          <div className="customers-right" style={{
             padding: '0px 20px',
             display: 'flex',
             gap: 10,
-            height: 460,
             overflow: 'hidden',
           }}>
             <ScrollColumn photos={col1} direction="up"   colId="c1" hoveredKey={hoveredKey} onHover={setHoveredKey} paused={paused} />

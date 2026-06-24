@@ -4,6 +4,7 @@ import { getTenant, getStoreConfig, getCustomerProfile } from '@/lib/supabase/qu
 import CartButton from './CartButton'
 import NavLinks from './NavLinks'
 import AccountButton from './AccountButton'
+import MobileMenu from './MobileMenu'
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID!
 
@@ -33,22 +34,19 @@ export default async function Navbar() {
 
   return (
     <header
-      className="sticky top-0 z-50 border-b"
+      className="sticky top-0 z-50 border-b relative"
       style={{
         background: '#fff',
         borderColor: '#fff',
       }}
     >
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="font-display text-xl font-bold tracking-tight flex items-center" style={{ position: 'absolute', top: 26, zIndex: 60 }}>
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
+        <Link href="/" className="font-display text-xl font-bold tracking-tight flex items-center flex-shrink-0">
           {store.logo_url
-            ? <img src={store.logo_url} alt={store.name} style={{ height: 60, objectFit: 'contain' }} />
+            ? <img src={store.logo_url} alt={store.name} style={{ height: 44, objectFit: 'contain' }} />
             : <>{store.name}<span style={{ color: 'var(--color-accent)' }}>.</span></>
           }
         </Link>
-
-        {/* Spacer para compensar el logo absolute */}
-        <div style={{ width: 140 }} />
 
         <NavLinks items={rootItems} />
 
@@ -80,6 +78,7 @@ export default async function Navbar() {
           </Link>
 
           <CartButton />
+          <MobileMenu items={rootItems} />
         </div>
       </div>
       <img src="/curva.png" alt="" className="absolute left-0 right-0 w-full pointer-events-none" style={{ bottom: 0, transform: 'translateY(100%)', zIndex: 50 }} />

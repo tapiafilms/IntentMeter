@@ -181,6 +181,12 @@ export default function ExploreCategoriesSection({ title = 'Colecciones', items 
           max-height: 0;
           pointer-events: none;
         }
+        @media (max-width: 639px) {
+          .exp-container { display: grid !important; grid-template-columns: repeat(2, 1fr); height: auto !important; }
+          .exp-card { min-height: 200px !important; flex: none !important; }
+          .exp-card-expanded, .exp-card-collapsed { flex: none !important; }
+          .exp-title-collapsed { font-size: 16px; }
+        }
       `}</style>
 
       <section className="max-w-6xl mx-auto px-6 pb-20">
@@ -196,7 +202,7 @@ export default function ExploreCategoriesSection({ title = 'Colecciones', items 
           </div>
         </div>
 
-        <div className="flex gap-3" style={{ height: 440 }}>
+        <div className="exp-container flex gap-3" style={{ height: 440 }}>
           {displayed.map((cat, i) => {
             const isExpanded = hovered === i
             const tags = cat.tags ?? [cat.name]
